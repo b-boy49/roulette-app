@@ -9,6 +9,20 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    button {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    button:not(:disabled) {
+      transition: transform 0.08s ease, filter 0.08s ease, box-shadow 0.08s ease;
+    }
+
+    button:not(:disabled):active {
+      transform: translateY(2px) scale(0.985);
+      filter: brightness(0.93);
+    }
+
     body {
       min-height: 100vh;
       background: url('assets/3a9380b9-2643-44ed-8138-5a32c31a9b01.png') center / cover no-repeat scroll;
@@ -101,7 +115,14 @@
       filter: brightness(1.08);
     }
 
-    #spinBtn:active:not(:disabled) { transform: translateY(0); }
+    #spinBtn:active:not(:disabled) {
+      transform: translateY(2px) scale(0.985);
+      box-shadow:
+        0 2px 10px rgba(184,134,11,0.35),
+        inset 0 2px 4px rgba(0,0,0,0.28),
+        inset 0 1px 0 rgba(255,255,255,0.22);
+      filter: brightness(0.95);
+    }
 
     #spinBtn:disabled {
       opacity: 0.55;
@@ -363,6 +384,10 @@
       border-color: #C00;
       color: #fff;
     }
+    .btn-remove:active:not(:disabled) {
+      transform: translateY(2px) scale(0.96);
+      background: rgba(180, 35, 35, 0.85);
+    }
 
     .btn-add {
       width: 100%;
@@ -381,6 +406,10 @@
       background: rgba(184, 134, 20, 0.12);
       border-color: #FFD700;
       color: #FFD700;
+    }
+    .btn-add:active:not(:disabled) {
+      transform: translateY(2px) scale(0.988);
+      background: rgba(184, 134, 20, 0.2);
     }
 
     .btn-save {
@@ -403,6 +432,10 @@
       filter: brightness(1.08);
       border-color: #FFD700;
     }
+    .btn-save:active:not(:disabled) {
+      transform: translateY(2px) scale(0.985);
+      filter: brightness(0.96);
+    }
 
     .btn-reset {
       width: 100%;
@@ -424,6 +457,10 @@
       filter: brightness(1.08);
       border-color: #FF8A8A;
     }
+    .btn-reset:active:not(:disabled) {
+      transform: translateY(2px) scale(0.985);
+      filter: brightness(0.94);
+    }
 
     .btn-equal {
       background: linear-gradient(135deg, #8B6914, #C5A028, #8B6914);
@@ -439,6 +476,10 @@
       transition: filter 0.15s;
     }
     .btn-equal:hover { filter: brightness(1.2); }
+    .btn-equal:active:not(:disabled) {
+      transform: translateY(2px) scale(0.985);
+      filter: brightness(0.95);
+    }
 
     /* ── Ratio slider ── */
     .entry-slider-row {
@@ -508,6 +549,10 @@
       border-color: #FFD700;
       color: #FFD700;
     }
+    .btn-bulk-toggle:active:not(:disabled) {
+      transform: translateY(2px) scale(0.988);
+      background: rgba(184,134,20,0.16);
+    }
 
     .bulk-area { margin-top: 10px; }
 
@@ -567,6 +612,10 @@
       transition: filter 0.15s;
     }
     .btn-bulk-apply:hover { filter: brightness(1.2); }
+    .btn-bulk-apply:active:not(:disabled) {
+      transform: translateY(2px) scale(0.985);
+      filter: brightness(0.96);
+    }
 
     .btn-bulk-cancel {
       background: transparent;
@@ -583,6 +632,10 @@
       background: rgba(180,40,40,0.25);
       border-color: #C44;
       color: #F88;
+    }
+    .btn-bulk-cancel:active:not(:disabled) {
+      transform: translateY(2px) scale(0.985);
+      background: rgba(180,40,40,0.34);
     }
 
     /* ── Title row with edit button ── */
@@ -655,8 +708,8 @@
     }
 
     .btn-edit:active {
-      transform: scale(1.04) translateY(0);
-      filter: brightness(0.95);
+      transform: scale(0.99) translateY(2px);
+      filter: brightness(0.94);
       animation: none;
     }
 
@@ -891,6 +944,10 @@
       background: rgba(200,50,50,0.45);
       border-color: #C44;
       color: #F88;
+    }
+    .btn-panel-close:active:not(:disabled) {
+      transform: translateY(2px) scale(0.94);
+      background: rgba(200,50,50,0.62);
     }
 
     /* ── Spotlight canvas (stage lighting) ── */
