@@ -1022,7 +1022,11 @@
       return color === '#EDD5A0' ? '#5C2B00' : '#FFD700';
     }
 
-    const STORAGE_KEY = 'roulette-app-entries-v1';
+    const LEGACY_STORAGE_KEY = 'roulette-app-entries-v1';
+    const DB_NAME = 'roulette-app-db';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'settings';
+    const ENTRIES_KEY = 'entries';
 
     function createDefaultEntries() {
       return [
@@ -1041,19 +1045,7 @@
       };
     }
 
-    function loadEntries() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return createDefaultEntries();
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed) || parsed.length === 0) return createDefaultEntries();
-        return parsed.map((entry, index) => normalizeEntry(entry, index));
-      } catch {
-        return createDefaultEntries();
-      }
-    }
-
-    let entries = loadEntries();
+    let entries = createDefaultEntries();
 
     let currentAngle = 0;
     let isSpinning   = false;
@@ -1062,11 +1054,83 @@
 
     // ── Helpers ──────────────────────────────────────────────
 
-    function saveEntries() {
+    function openEntriesDb() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME);
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('indexedDB open failed'));
+      });
+    }
+
+    function waitForTransaction(tx) {
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('indexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('indexedDB transaction aborted'));
+      });
+    }
+
+    async function loadEntries() {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+        const db = await openEntriesDb();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const value = await new Promise((resolve, reject) => {
+          const req = store.get(ENTRIES_KEY);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = () => reject(req.error || new Error('indexedDB read failed'));
+        });
+        await waitForTransaction(tx);
+        db.close();
+
+        if (Array.isArray(value) && value.length > 0) {
+          return value.map((entry, index) => normalizeEntry(entry, index));
+        }
+
+        const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+        if (legacyRaw) {
+          const parsed = JSON.parse(legacyRaw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((entry, index) => normalizeEntry(entry, index));
+          }
+        }
       } catch {
-        // Ignore storage quota/security errors.
+        try {
+          const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+          if (legacyRaw) {
+            const parsed = JSON.parse(legacyRaw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed.map((entry, index) => normalizeEntry(entry, index));
+            }
+          }
+        } catch {
+          // Fall through to defaults.
+        }
+      }
+
+      return createDefaultEntries();
+    }
+
+    async function saveEntries() {
+      try {
+        const db = await openEntriesDb();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put(entries, ENTRIES_KEY);
+        await waitForTransaction(tx);
+        db.close();
+      } catch {
+        try {
+          localStorage.setItem(LEGACY_STORAGE_KEY, JSON.stringify(entries));
+        } catch {
+          // Ignore storage quota/security errors.
+        }
       }
     }
 
@@ -1834,8 +1898,7 @@
     }
 
     function saveAndReturn() {
-      saveEntries();
-      window.location.reload();
+      saveEntries().finally(() => window.location.reload());
     }
 
     // ── Panel modal ───────────────────────────────────────────
@@ -1849,9 +1912,15 @@
       if (e.target === document.getElementById('panelOverlay')) togglePanel();
     }
 
+    async function initApp() {
+      entries = await loadEntries();
+      renderList();
+      drawWheel();
+      saveEntries();
+    }
+
     window.addEventListener('resize', drawWheel);
-    renderList();
-    drawWheel();
+    initApp();
 
     // Switch both characters to float after entrance completes
     setTimeout(() => setCharacterState('floating'), 1400);
