@@ -783,6 +783,16 @@
       color: #F88;
     }
 
+    /* ── Confetti canvas overlay ── */
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 500;
+    }
+
     /* Extra-small phones */
     @media (max-width: 400px) {
       h1 { font-size: 1.2rem; letter-spacing: 0.05em; }
@@ -843,6 +853,9 @@
          src="assets/8ad93512-233c-4afc-9a91-fdb8f462b205.png"
          alt="キャラクター右">
   </div>
+
+  <!-- Confetti canvas (full-screen, pointer-events: none) -->
+  <canvas id="confetti-canvas"></canvas>
 
   <!-- Settings modal (bottom-sheet) -->
   <div id="panelOverlay" class="panel-overlay" onclick="overlayClick(event)">
@@ -980,7 +993,7 @@
         const srcH = image.naturalHeight;
         const dstW = outerR * 2;
         const dstH = outerR * 2;
-        const scale = Math.max(dstW / srcW, dstH / srcH);
+        const scale = Math.min(dstW / srcW, dstH / srcH);
         const drawW = srcW * scale;
         const drawH = srcH * scale;
         const dx = cx - drawW / 2;
@@ -1294,6 +1307,7 @@
       resultEl.classList.remove('animate');
       void resultEl.offsetWidth;
       resultEl.classList.add('animate');
+      launchConfetti();
     }
 
     // ── Entry management ─────────────────────────────────────
@@ -1511,6 +1525,133 @@
 
     // Switch both characters to float after entrance completes
     setTimeout(() => setCharacterState('floating'), 1400);
+
+    // ── Confetti engine ──────────────────────────────────────────
+    (function() {
+      const cvs = document.getElementById('confetti-canvas');
+      const ctx = cvs.getContext('2d');
+      let particles = [];
+      let rafId = null;
+
+      const COLORS = [
+        '#FFD700','#FFF0A0','#FF6B35','#FF1493',
+        '#C84BFF','#4FC3F7','#FF3860','#FFFFFF',
+        '#76FF03','#FF69B4','#F5A623','#E040FB'
+      ];
+      const GRAVITY = 0.38;
+      const DRAG    = 0.985;
+
+      function rand(a, b) { return a + Math.random() * (b - a); }
+
+      function makeParticle(x, y, vx, vy) {
+        const type = Math.random() < 0.55 ? 'rect' : (Math.random() < 0.5 ? 'circle' : 'strip');
+        return {
+          x, y, vx, vy,
+          rot: rand(0, Math.PI * 2),
+          rotV: rand(-0.25, 0.25),
+          w: type === 'strip' ? rand(3, 7)  : rand(7, 14),
+          h: type === 'strip' ? rand(14, 32) : rand(7, 14),
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+          type,
+          life: 1,
+          decay: rand(0.012, 0.022),
+          wobble: rand(0, Math.PI * 2),
+          wobbleV: rand(0.05, 0.12)
+        };
+      }
+
+      function burst(fromX, fromY, dirSign, count) {
+        for (let i = 0; i < count; i++) {
+          // angle: roughly upward + toward center
+          const baseAngle = dirSign > 0
+            ? rand(-Math.PI * 0.85, -Math.PI * 0.15)   // left cannon → shoots right+up
+            : rand(-Math.PI * 0.85, -Math.PI * 0.15);  // right cannon → shoots left+up (vx negated)
+          const speed = rand(9, 26);
+          particles.push(makeParticle(
+            fromX, fromY,
+            Math.cos(baseAngle) * speed * dirSign,
+            Math.sin(baseAngle) * speed
+          ));
+        }
+      }
+
+      function resize() {
+        cvs.width  = window.innerWidth;
+        cvs.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function step() {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        let alive = false;
+
+        for (const p of particles) {
+          if (p.life <= 0) continue;
+          alive = true;
+
+          p.vx *= DRAG;
+          p.vy  = p.vy * DRAG + GRAVITY;
+          p.x  += p.vx;
+          p.y  += p.vy;
+          p.rot += p.rotV;
+          p.wobble += p.wobbleV;
+          p.life -= p.decay;
+
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.life);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot);
+
+          if (p.type === 'circle') {
+            ctx.beginPath();
+            ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+          } else {
+            // rect or strip — wobble scaleX simulates tumbling
+            const scaleX = Math.cos(p.wobble);
+            ctx.scale(scaleX, 1);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+          }
+          ctx.restore();
+        }
+
+        if (alive) {
+          rafId = requestAnimationFrame(step);
+        } else {
+          ctx.clearRect(0, 0, cvs.width, cvs.height);
+          rafId = null;
+        }
+      }
+
+      window.launchConfetti = function() {
+        if (rafId) cancelAnimationFrame(rafId);
+        particles = [];
+        const W = cvs.width, H = cvs.height;
+        const PER_CANNON = 160;
+
+        // First volley — from bottom corners
+        burst(W * 0.02, H * 0.92,  1, PER_CANNON);
+        burst(W * 0.98, H * 0.92, -1, PER_CANNON);
+
+        // Second volley — slight delay, from mid-sides
+        setTimeout(() => {
+          burst(W * 0.05, H * 0.55,  1, 90);
+          burst(W * 0.95, H * 0.55, -1, 90);
+        }, 180);
+
+        // Third volley — top corners, spread wide
+        setTimeout(() => {
+          burst(W * 0.10, H * 0.30,  1, 60);
+          burst(W * 0.90, H * 0.30, -1, 60);
+        }, 380);
+
+        rafId = requestAnimationFrame(step);
+      };
+    })();
+    // ─────────────────────────────────────────────────────────────
   </script>
 </body>
 </html>
