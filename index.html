@@ -191,12 +191,30 @@
       gap: 8px;
     }
 
-    .entry-dot {
-      width: 13px;
-      height: 13px;
-      border-radius: 3px;
+    .entry-color {
+      width: 38px;
+      height: 38px;
       flex-shrink: 0;
-      box-shadow: 0 0 5px rgba(255,215,0,0.3);
+      border: 1px solid rgba(184, 134, 20, 0.55);
+      border-radius: 10px;
+      padding: 3px;
+      background: rgba(255, 215, 0, 0.06);
+      cursor: pointer;
+      box-shadow: 0 0 5px rgba(255,215,0,0.18);
+    }
+
+    .entry-color::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    .entry-color::-webkit-color-swatch {
+      border: none;
+      border-radius: 7px;
+    }
+
+    .entry-color::-moz-color-swatch {
+      border: none;
+      border-radius: 7px;
     }
 
     .entry-name {
@@ -313,6 +331,27 @@
       background: rgba(184, 134, 20, 0.12);
       border-color: #FFD700;
       color: #FFD700;
+    }
+
+    .btn-save {
+      width: 100%;
+      margin-top: 12px;
+      background: linear-gradient(135deg, #1A3A5C, #3D0B6E, #1A3A5C);
+      color: #FFFACD;
+      border: 1px solid rgba(255, 215, 0, 0.5);
+      padding: 12px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-family: inherit;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      transition: transform 0.15s, filter 0.15s, border-color 0.15s;
+    }
+    .btn-save:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+      border-color: #FFD700;
     }
 
     .btn-equal {
@@ -892,6 +931,8 @@
           </div>
         </div>
       </div>
+
+      <button class="btn-save" onclick="saveAndReturn()">保存して戻る</button>
     </div>
   </div>
 
@@ -908,6 +949,10 @@
       '#2C2C2C', // charcoal
     ];
 
+    function defaultColorForIndex(i) {
+      return SEG_COLORS[i % SEG_COLORS.length];
+    }
+
     // Text color per segment (light bg needs dark text)
     function segTextColor(color) {
       return color === '#EDD5A0' ? '#5C2B00' : '#FFD700';
@@ -917,17 +962,18 @@
 
     function createDefaultEntries() {
       return [
-        { name: 'Aさん', ratio: 1, image: '' },
-        { name: 'Bさん', ratio: 1, image: '' },
-        { name: 'Cさん', ratio: 1, image: '' },
+        { name: 'Aさん', ratio: 1, image: '', color: defaultColorForIndex(0) },
+        { name: 'Bさん', ratio: 1, image: '', color: defaultColorForIndex(1) },
+        { name: 'Cさん', ratio: 1, image: '', color: defaultColorForIndex(2) },
       ];
     }
 
-    function normalizeEntry(entry) {
+    function normalizeEntry(entry, index) {
       return {
         name: typeof entry?.name === 'string' ? entry.name : '',
         ratio: Number(entry?.ratio) > 0 ? Number(entry.ratio) : 1,
         image: typeof entry?.image === 'string' ? entry.image : '',
+        color: typeof entry?.color === 'string' && entry.color ? entry.color : defaultColorForIndex(index),
       };
     }
 
@@ -937,7 +983,7 @@
         if (!raw) return createDefaultEntries();
         const parsed = JSON.parse(raw);
         if (!Array.isArray(parsed) || parsed.length === 0) return createDefaultEntries();
-        return parsed.map(normalizeEntry);
+        return parsed.map((entry, index) => normalizeEntry(entry, index));
       } catch {
         return createDefaultEntries();
       }
@@ -976,83 +1022,37 @@
 
     function getValid() {
       return entries
-        .map((e, i) => ({ name: e.name.trim(), ratio: Number(e.ratio), image: e.image || '', origIdx: i }))
+        .map((e, i) => ({ name: e.name.trim(), ratio: Number(e.ratio), image: e.image || '', color: e.color || defaultColorForIndex(i), origIdx: i }))
         .filter(e => e.name !== '' && e.ratio > 0);
     }
 
     function drawSegmentImage(ctx, image, cx, cy, innerR, outerR, startAngle, endAngle) {
-      const sweep = endAngle - startAngle;
-      const midAngle = startAngle + sweep / 2;
-
-      // Lay the image out in a small card that stays fully inside the slice.
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(midAngle);
-
-      const cardTop = outerR * 0.34;
-      const cardH = outerR * 0.30;
-      const margin = 8;
-      const maxWBySlice = Math.max(36, 2 * cardTop * Math.tan(Math.max(sweep, 0.001) / 2) * 0.84);
-      const cardW = Math.min(outerR * 0.74, maxWBySlice);
-      const x = -cardW / 2;
-      const y = cardTop;
-      const w = cardW;
-      const h = cardH;
-      const radius = Math.min(16, Math.min(w, h) / 5);
-
-      ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + w - radius, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-      ctx.lineTo(x + w, y + h - radius);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-      ctx.lineTo(x + radius, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
-      ctx.closePath();
-
-      const cardFill = ctx.createLinearGradient(x, y, x + w, y + h);
-      cardFill.addColorStop(0, 'rgba(0,0,0,0.28)');
-      cardFill.addColorStop(1, 'rgba(0,0,0,0.58)');
-      ctx.fillStyle = cardFill;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(245, 222, 179, 0.72)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + w - radius, y);
-      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-      ctx.lineTo(x + w, y + h - radius);
-      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-      ctx.lineTo(x + radius, y + h);
-      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, outerR, startAngle, endAngle);
       ctx.closePath();
       ctx.clip();
 
       if (image && image.complete && image.naturalWidth > 0) {
         const srcW = image.naturalWidth;
         const srcH = image.naturalHeight;
-        const scale = Math.min((w - margin * 2) / srcW, (h - margin * 2) / srcH);
+        const dstW = outerR * 2;
+        const dstH = outerR * 2;
+        const scale = Math.min(dstW / srcW, dstH / srcH) * 1.12;
         const drawW = srcW * scale;
         const drawH = srcH * scale;
-        const dx = x + (w - drawW) / 2;
-        const dy = y + (h - drawH) / 2;
+        const dx = cx - drawW / 2;
+        const dy = cy - drawH / 2;
         ctx.drawImage(image, dx, dy, drawW, drawH);
       } else {
-        const fallback = ctx.createLinearGradient(x, y, x + w, y + h);
+        const fallback = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
         fallback.addColorStop(0, '#3D0B6E');
         fallback.addColorStop(1, '#1E1E1E');
         ctx.fillStyle = fallback;
-        ctx.fillRect(x, y, w, h);
+        ctx.fillRect(cx - outerR, cy - outerR, outerR * 2, outerR * 2);
       }
 
-      ctx.restore();
       ctx.restore();
     }
 
@@ -1093,7 +1093,7 @@
 
         valid.forEach((entry, i) => {
           const sweep    = (entry.ratio / total) * 2 * Math.PI;
-          const color    = SEG_COLORS[entry.origIdx % SEG_COLORS.length];
+          const color    = entry.color || defaultColorForIndex(entry.origIdx);
           const isWinner = (i === winnerInList);
           const fs = Math.min(17, Math.max(10, Math.floor(210 / Math.max(valid.length, 3))));
 
@@ -1366,7 +1366,7 @@
     }
 
     function addEntry() {
-      entries.push({ name: '', ratio: 1, image: '' });
+      entries.push({ name: '', ratio: 1, image: '', color: defaultColorForIndex(entries.length) });
       renderList();
       const inputs = document.querySelectorAll('.entry-name');
       if (inputs.length) inputs[inputs.length - 1].focus();
@@ -1401,9 +1401,16 @@
         const row = document.createElement('div');
         row.className = 'entry-row';
 
-        const dot = document.createElement('div');
-        dot.className        = 'entry-dot';
-        dot.style.background = SEG_COLORS[i % SEG_COLORS.length];
+        const colorIn = document.createElement('input');
+        colorIn.type = 'color';
+        colorIn.className = 'entry-color';
+        colorIn.value = e.color || defaultColorForIndex(i);
+        colorIn.title = '色を選択';
+        colorIn.oninput = ev => {
+          entries[i].color = ev.target.value;
+          drawWheel();
+          saveEntries();
+        };
 
         const nameIn = document.createElement('input');
         nameIn.type        = 'text';
@@ -1507,7 +1514,7 @@
         rm.onclick     = () => removeEntry(i);
 
         avatarBtn.append(avatarImg, avatarPlaceholder, fileIn);
-        row.append(dot, nameIn, avatarBtn, ratioIn, rm);
+        row.append(colorIn, nameIn, avatarBtn, ratioIn, rm);
         sliderRow.append(rangeIn);
 
         list.appendChild(row);
@@ -1538,12 +1545,12 @@
       const lines = text.trim().split(/\r?\n/).filter(l => l.trim() !== '');
       if (lines.length === 0) return;
 
-      const parsed = lines.map(line => {
+      const parsed = lines.map((line, index) => {
         const parts = line.split('\t');
         const name  = parts[0].trim();
         const raw   = parts.length > 1 ? parts[1].trim() : '';
         const ratio = Math.max(1, parseInt(raw, 10) || 1);
-        return { name, ratio, image: '' };
+        return { name, ratio, image: '', color: defaultColorForIndex(startIdx + index) };
       }).filter(e => e.name !== '');
 
       if (parsed.length === 0) return;
@@ -1552,6 +1559,11 @@
       renderList();
       drawWheel();
       saveEntries();
+    }
+
+    function saveAndReturn() {
+      saveEntries();
+      window.location.reload();
     }
 
     // ── Panel modal ───────────────────────────────────────────
