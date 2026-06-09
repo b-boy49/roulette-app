@@ -132,6 +132,38 @@
       animation: luxuryPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     }
 
+    /* ── Centre announcement overlay ── */
+    #winner-announce {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.12);
+      opacity: 0;
+      z-index: 450;
+      pointer-events: none;
+      font-size: clamp(2.4rem, 10vw, 5.8rem);
+      font-weight: 900;
+      font-family: 'Noto Serif JP', 'Hiragino Mincho ProN', serif;
+      letter-spacing: 0.06em;
+      text-align: center;
+      max-width: 90vw;
+      padding: 0 24px;
+      color: #FFD700;
+      filter:
+        drop-shadow(0 0 28px rgba(255,215,0,1))
+        drop-shadow(0 0 60px rgba(255,180,0,0.7))
+        drop-shadow(0 4px 12px rgba(0,0,0,0.8));
+      word-break: break-word;
+    }
+
+    #winner-announce.is-in {
+      transform: translate(-50%, -50%) scale(1);
+      opacity: 1;
+      transition:
+        transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity   0.3s  ease-out;
+    }
+
     /* ── Settings Panel ── */
     .panel {
       width: 100%;
@@ -272,6 +304,24 @@
       line-height: 1;
       text-align: center;
       padding: 0 3px;
+    }
+
+    .wheel-segment-badge {
+      position: absolute;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid rgba(245, 222, 179, 0.9);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .wheel-segment-badge img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     .entry-file {
@@ -822,6 +872,17 @@
       color: #F88;
     }
 
+    /* ── Spotlight canvas (stage lighting) ── */
+    #spotlight-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 2;
+      mix-blend-mode: screen;
+    }
+
     /* ── Confetti canvas overlay ── */
     #confetti-canvas {
       position: fixed;
@@ -892,6 +953,9 @@
          src="assets/8ad93512-233c-4afc-9a91-fdb8f462b205.png"
          alt="キャラクター右">
   </div>
+
+  <!-- Spotlight canvas (stage lighting, mix-blend-mode: screen) -->
+  <canvas id="spotlight-canvas"></canvas>
 
   <!-- Confetti canvas (full-screen, pointer-events: none) -->
   <canvas id="confetti-canvas"></canvas>
@@ -1026,28 +1090,42 @@
         .filter(e => e.name !== '' && e.ratio > 0);
     }
 
-    function drawSegmentImage(ctx, image, cx, cy, innerR, outerR, startAngle, endAngle) {
-      if (!(image && image.complete && image.naturalWidth > 0)) return;
-
+    function drawWheelBadge(ctx, image, x, y, size, fallbackLabel) {
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, outerR, startAngle, endAngle);
-      ctx.closePath();
+      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
       ctx.clip();
 
-      const srcW = image.naturalWidth;
-      const srcH = image.naturalHeight;
-      const dstW = outerR * 2;
-      const dstH = outerR * 2;
-      const scale = Math.min(dstW / srcW, dstH / srcH) * 1.12;
-      const drawW = srcW * scale;
-      const drawH = srcH * scale;
-      const dx = cx - drawW / 2;
-      const dy = cy - drawH / 2;
-      ctx.drawImage(image, dx, dy, drawW, drawH);
+      if (image && image.complete && image.naturalWidth > 0) {
+        const srcW = image.naturalWidth;
+        const srcH = image.naturalHeight;
+        const scale = Math.max(size / srcW, size / srcH);
+        const drawW = srcW * scale;
+        const drawH = srcH * scale;
+        const dx = x - drawW / 2;
+        const dy = y - drawH / 2;
+        ctx.drawImage(image, dx, dy, drawW, drawH);
+      } else {
+        const bg = ctx.createLinearGradient(x - size / 2, y - size / 2, x + size / 2, y + size / 2);
+        bg.addColorStop(0, '#3D0B6E');
+        bg.addColorStop(1, '#1E1E1E');
+        ctx.fillStyle = bg;
+        ctx.fillRect(x - size / 2, y - size / 2, size, size);
+
+        ctx.fillStyle = '#FFD700';
+        ctx.font = `bold ${Math.max(10, Math.floor(size * 0.32))}px 'Noto Serif JP','Hiragino Mincho ProN',serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fallbackLabel, x, y);
+      }
 
       ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(245, 222, 179, 0.95)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
 
     // ── Draw ─────────────────────────────────────────────────
@@ -1099,8 +1177,6 @@
           ctx.fillStyle = color;
           ctx.fill();
 
-          drawSegmentImage(ctx, getImageElement(entry.image), cx, cy, 0, R, angle, angle + sweep);
-
           // Subtle radial pattern overlay for texture
           const mid = angle + sweep / 2;
           const texGrd = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
@@ -1141,8 +1217,11 @@
           ctx.stroke();
           ctx.restore();
 
-          // ── Text ──────────────────────────────
-          const labelR  = R * 0.62;
+          // ── Icon + Text ────────────────────────
+          const badgeR  = R * 0.38;
+          const labelR  = R * 0.58;
+          const bx      = cx + Math.cos(mid) * badgeR;
+          const by      = cy + Math.sin(mid) * badgeR;
           const tx      = cx + Math.cos(mid) * labelR;
           const ty      = cy + Math.sin(mid) * labelR;
 
@@ -1154,7 +1233,6 @@
           }
           if (label !== entry.name) label = label.slice(0, -1) + '…';
 
-          ctx.save();
           ctx.beginPath();
           ctx.moveTo(cx, cy);
           ctx.arc(cx, cy, R, angle, angle + sweep);
@@ -1171,6 +1249,8 @@
           ctx.fillStyle = overlay;
           ctx.fill();
           ctx.restore();
+
+          drawWheelBadge(ctx, getImageElement(entry.image), bx, by, 34, entry.name.charAt(0));
 
           ctx.textAlign    = 'center';
           ctx.textBaseline = 'middle';
@@ -1275,6 +1355,112 @@
       ctx.fill();
     }
 
+    // ── Sound engine ─────────────────────────────────────────
+    const SoundEngine = (function() {
+      let actx = null;
+      let lastTickTime = 0;
+
+      function getCtx() {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        if (actx.state === 'suspended') actx.resume();
+        return actx;
+      }
+
+      // Mechanical click — ball hitting a pin on the rim
+      function playTick(speedFactor) {
+        const now = performance.now();
+        if (now - lastTickTime < 42) return; // cap ~24 ticks/sec
+        lastTickTime = now;
+        try {
+          const ac = getCtx();
+          const t  = ac.currentTime;
+          const sr = ac.sampleRate;
+          const len = Math.floor(sr * 0.045);
+          const buf = ac.createBuffer(1, len, sr);
+          const d   = buf.getChannelData(0);
+          for (let i = 0; i < len; i++) {
+            d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.2);
+          }
+          const src = ac.createBufferSource();
+          src.buffer = buf;
+
+          const bpf = ac.createBiquadFilter();
+          bpf.type = 'bandpass';
+          bpf.frequency.value = 1600 + speedFactor * 900;
+          bpf.Q.value = 4;
+
+          const gain = ac.createGain();
+          gain.gain.setValueAtTime(0.16 + speedFactor * 0.14, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
+
+          src.connect(bpf); bpf.connect(gain); gain.connect(ac.destination);
+          src.start(t); src.stop(t + 0.05);
+        } catch(e) {}
+      }
+
+      // Celebration — two cracker pops + fanfare shimmer
+      function playCracker() {
+        try {
+          const ac = getCtx();
+
+          function pop(delayMs, vol) {
+            setTimeout(() => {
+              const t   = ac.currentTime;
+              const sr  = ac.sampleRate;
+              const len = Math.floor(sr * 0.18);
+              const buf = ac.createBuffer(1, len, sr);
+              const d   = buf.getChannelData(0);
+              for (let i = 0; i < len; i++) {
+                d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.5);
+              }
+              const src = ac.createBufferSource();
+              src.buffer = buf;
+              const lpf = ac.createBiquadFilter();
+              lpf.type = 'lowpass'; lpf.frequency.value = 3200;
+              const gain = ac.createGain();
+              gain.gain.setValueAtTime(vol, t);
+              src.connect(lpf); lpf.connect(gain); gain.connect(ac.destination);
+              src.start(t); src.stop(t + 0.2);
+            }, delayMs);
+          }
+
+          pop(0, 1.3); pop(150, 1.1);
+
+          // Rising fanfare C5→E5→G5→C6→E6→G6
+          [523, 659, 784, 1047, 1319, 1568].forEach((freq, i) => {
+            setTimeout(() => {
+              const t = ac.currentTime;
+              const osc = ac.createOscillator();
+              const g   = ac.createGain();
+              osc.type = 'sine'; osc.frequency.value = freq;
+              g.gain.setValueAtTime(0, t);
+              g.gain.linearRampToValueAtTime(0.13, t + 0.02);
+              g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+              osc.connect(g); g.connect(ac.destination);
+              osc.start(t); osc.stop(t + 0.55);
+            }, i * 72 + 55);
+          });
+
+          // Random high shimmer
+          for (let i = 0; i < 14; i++) {
+            setTimeout(() => {
+              const t = ac.currentTime;
+              const osc = ac.createOscillator();
+              const g   = ac.createGain();
+              osc.type = 'sine'; osc.frequency.value = 2200 + Math.random() * 3000;
+              g.gain.setValueAtTime(0.055, t);
+              g.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+              osc.connect(g); g.connect(ac.destination);
+              osc.start(t); osc.stop(t + 0.25);
+            }, Math.random() * 600 + 40);
+          }
+        } catch(e) {}
+      }
+
+      return { playTick, playCracker, getCtx };
+    })();
+    // ─────────────────────────────────────────────────────────
+
     // ── Spin ─────────────────────────────────────────────────
 
     function setCharacterState(state) {
@@ -1296,15 +1482,31 @@
       resultEl.classList.remove('animate');
       resultEl.textContent = '';
 
-      const totalSpin = (5 + Math.random() * 6) * 360;
-      const duration  = 3800 + Math.random() * 1600;
-      const t0        = performance.now();
-      const fromAngle = currentAngle;
+      SoundEngine.getCtx(); // wake AudioContext on user gesture
+
+      const totalSpin   = (5 + Math.random() * 6) * 360;
+      const duration    = 3800 + Math.random() * 1600;
+      const t0          = performance.now();
+      const fromAngle   = currentAngle;
+      const TICK_DEG    = 8;
+      let lastTickAngle = fromAngle;
+      let prevAngle     = fromAngle;
 
       function frame(now) {
         const t    = Math.min((now - t0) / duration, 1);
         const ease = 1 - Math.pow(1 - t, 4);
-        currentAngle = fromAngle + totalSpin * ease;
+        const newAngle = fromAngle + totalSpin * ease;
+
+        // Play tick each time wheel crosses TICK_DEG threshold
+        if (newAngle - lastTickAngle >= TICK_DEG) {
+          const delta       = newAngle - prevAngle;
+          const speedFactor = Math.min(1, delta / 22);
+          SoundEngine.playTick(speedFactor);
+          lastTickAngle = newAngle;
+        }
+        prevAngle    = newAngle;
+        currentAngle = newAngle;
+
         drawWheel();
         if (t < 1) {
           requestAnimationFrame(frame);
@@ -1318,6 +1520,52 @@
       }
 
       requestAnimationFrame(frame);
+    }
+
+    // ── Winner announcement ───────────────────────────────────
+
+    function showWinnerAnnouncement(text) {
+      // Remove any previous announcement
+      const old = document.getElementById('winner-announce');
+      if (old) old.remove();
+
+      const el = document.createElement('div');
+      el.id = 'winner-announce';
+      el.textContent = text;
+      document.body.appendChild(el);
+
+      // Pop in (double rAF ensures transition picks up after initial state)
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
+
+      // After showing, fly toward #result
+      const SHOW_MS = 1400;
+      const FLY_MS  = 580;
+
+      setTimeout(() => {
+        const resultEl = document.getElementById('result');
+        const elRect   = el.getBoundingClientRect();
+        const resRect  = resultEl.getBoundingClientRect();
+
+        // Delta between element center and result center
+        const dx = (resRect.left + resRect.width  / 2) - (elRect.left + elRect.width  / 2);
+        const dy = (resRect.top  + resRect.height / 2) - (elRect.top  + elRect.height / 2);
+
+        // translate(-50%,-50%) keeps element centered on top:50% left:50%
+        // adding dx/dy shifts that center toward the result div
+        el.style.transition = `transform ${FLY_MS}ms cubic-bezier(0.4,0,1,1), opacity ${Math.round(FLY_MS*0.65)}ms ease-in`;
+        el.style.transform  = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.28)`;
+        el.style.opacity    = '0';
+
+        // Reveal in result div after fly lands
+        setTimeout(() => {
+          resultEl.textContent = text;
+          resultEl.classList.remove('animate');
+          void resultEl.offsetWidth;
+          resultEl.classList.add('animate');
+          el.remove();
+        }, FLY_MS + 40);
+
+      }, SHOW_MS);
     }
 
     // ── Winner ───────────────────────────────────────────────
@@ -1342,11 +1590,8 @@
       }
 
       drawWheel();
-      const resultEl = document.getElementById('result');
-      resultEl.textContent = `🎊 ${winner.name} が当たり！ 🎊`;
-      resultEl.classList.remove('animate');
-      void resultEl.offsetWidth;
-      resultEl.classList.add('animate');
+      showWinnerAnnouncement(`🎊 ${winner.name} が当たり！ 🎊`);
+      SoundEngine.playCracker();
       launchConfetti();
     }
 
@@ -1702,6 +1947,116 @@
 
         rafId = requestAnimationFrame(step);
       };
+    })();
+    // ─────────────────────────────────────────────────────────────
+
+    // ── Spotlight engine (stage lighting) ────────────────────────
+    (function() {
+      const cvs = document.getElementById('spotlight-canvas');
+      const ctx  = cvs.getContext('2d');
+
+      function resize() { cvs.width = window.innerWidth; cvs.height = window.innerHeight; }
+      window.addEventListener('resize', resize);
+      resize();
+
+      // Key element positions to attract spotlights toward
+      let zones = [];
+      let lastZoneRefresh = 0;
+
+      function refreshZones() {
+        const W = cvs.width, H = cvs.height;
+        const z = [{ x: W * 0.5, y: H * 0.42 }]; // fallback center
+
+        const wc = document.querySelector('.wheel-and-controls');
+        if (wc) {
+          const r = wc.getBoundingClientRect();
+          z.push({ x: r.left + r.width * 0.5,  y: r.top + r.height * 0.3  });
+          z.push({ x: r.left + r.width * 0.5,  y: r.top + r.height * 0.65 });
+        }
+        for (const sel of ['.character', '.character-right']) {
+          const el = document.querySelector(sel);
+          if (el) {
+            const cs = getComputedStyle(el);
+            if (cs.display !== 'none') {
+              const r = el.getBoundingClientRect();
+              if (r.width > 0) z.push({ x: r.left + r.width * 0.5, y: r.top + r.height * 0.4 });
+            }
+          }
+        }
+        // Extra atmospheric fill positions
+        z.push({ x: W * 0.15, y: H * 0.55 }, { x: W * 0.85, y: H * 0.55 },
+                { x: W * 0.5,  y: H * 0.18 }, { x: W * 0.3,  y: H * 0.35 },
+                { x: W * 0.7,  y: H * 0.35 });
+        zones = z;
+      }
+
+      // 7 spotlights with distinct hues
+      const HUES = [4, 196, 268, 48, 138, 322, 172];
+      const spots = HUES.map((hue, i) => {
+        const W = cvs.width, H = cvs.height, D = Math.min(W, H);
+        return {
+          x: W * (0.15 + Math.random() * 0.7),
+          y: H * (0.15 + Math.random() * 0.65),
+          tx: W * 0.5, ty: H * 0.4,
+          hue,
+          hueV:    (Math.random() > 0.5 ? 1 : -1) * (0.015 + Math.random() * 0.03),
+          radius:  D * (0.17 + Math.random() * 0.15),
+          rTarget: D * (0.17 + Math.random() * 0.15),
+          opacity: 0.13 + Math.random() * 0.1,
+          oTarget: 0.13 + Math.random() * 0.1,
+          speed:   0.004 + Math.random() * 0.004,
+          nextAt:  i * 700 + Math.random() * 1000,
+          // sinusoidal orbit parameters for organic drift
+          orR:    25 + Math.random() * 55,
+          orFreq: 0.00025 + Math.random() * 0.00035,
+          orPhase: Math.random() * Math.PI * 2,
+          _px: 0, _py: 0,
+        };
+      });
+
+      function update(now) {
+        if (now - lastZoneRefresh > 1800) { refreshZones(); lastZoneRefresh = now; }
+        const D = Math.min(cvs.width, cvs.height);
+
+        for (const s of spots) {
+          if (now >= s.nextAt && zones.length) {
+            const z = zones[Math.floor(Math.random() * zones.length)];
+            s.tx      = z.x + (Math.random() - 0.5) * cvs.width  * 0.1;
+            s.ty      = z.y + (Math.random() - 0.5) * cvs.height * 0.12;
+            s.nextAt  = now + 1600 + Math.random() * 3000;
+            s.oTarget = 0.10 + Math.random() * 0.18;
+            s.rTarget = D * (0.15 + Math.random() * 0.17);
+          }
+          s.x += (s.tx - s.x) * s.speed;
+          s.y += (s.ty - s.y) * s.speed;
+
+          s.orPhase += s.orFreq * 16;
+          s._px = s.x + s.orR * Math.sin(s.orPhase);
+          s._py = s.y + s.orR * Math.cos(s.orPhase * 0.71 + 1.3);
+
+          s.opacity += (s.oTarget  - s.opacity) * 0.014;
+          s.radius  += (s.rTarget  - s.radius)  * 0.009;
+          s.hue      = (s.hue + s.hueV + 360) % 360;
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        for (const s of spots) {
+          const { _px: x, _py: y, radius: r, hue, opacity } = s;
+          const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+          g.addColorStop(0,    `hsla(${hue},100%,74%,${opacity})`);
+          g.addColorStop(0.28, `hsla(${hue},100%,66%,${(opacity * 0.58).toFixed(3)})`);
+          g.addColorStop(0.62, `hsla(${hue},100%,58%,${(opacity * 0.2).toFixed(3)})`);
+          g.addColorStop(1,    `hsla(${hue},100%,50%,0)`);
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, y, r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      (function loop(now) { update(now); draw(); requestAnimationFrame(loop); })(0);
     })();
     // ─────────────────────────────────────────────────────────────
   </script>
