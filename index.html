@@ -828,6 +828,7 @@
 
     /* Mobile — wheel full width, characters shown below spin button */
     @media (max-width: 559px) {
+      /* ── Outer layout ── */
       .outer-scene {
         flex-wrap: wrap;
         gap: 12px;
@@ -841,7 +842,6 @@
         width: calc(100vw - 32px);
         height: calc(100vw - 32px);
       }
-      /* Both characters appear side-by-side below the spin button */
       .character, .character-right {
         order: 10;
         width: clamp(90px, 40vw, 150px);
@@ -852,6 +852,81 @@
         mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
         filter: drop-shadow(0 -6px 16px rgba(140,70,0,0.45));
       }
+
+      /* ── Edit panel — compact for mobile ── */
+      .panel {
+        padding: 12px 10px;
+        border-radius: 10px;
+      }
+      .panel-drag-handle { margin-bottom: 10px; }
+      .panel-header {
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+      }
+      .panel-header h2 { font-size: 0.83rem; }
+      .btn-equal { padding: 5px 10px; font-size: 0.73rem; }
+      .btn-panel-close { width: 24px; height: 24px; font-size: 0.85rem; }
+
+      /* Column labels */
+      .col-labels {
+        padding: 0 26px 0 35px;
+        font-size: 0.62rem;
+        margin-bottom: 3px;
+        gap: 5px;
+      }
+      .col-labels .lbl-ratio { width: 42px; }
+
+      /* Entry list spacing */
+      #entryList { gap: 3px; margin-bottom: 8px; }
+      .entry-row { gap: 5px; }
+
+      /* Color swatch — smaller */
+      .entry-color {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        padding: 2px;
+      }
+      /* Name input — tighter padding */
+      .entry-name {
+        padding: 6px 7px;
+        font-size: 0.83rem;
+        border-radius: 6px;
+      }
+      /* Avatar — smaller */
+      .entry-avatar {
+        width: 30px;
+        height: 30px;
+      }
+      .entry-avatar-placeholder { font-size: 0.57rem; }
+      /* Ratio input — narrower */
+      .entry-ratio {
+        width: 42px;
+        padding: 6px 3px;
+        font-size: 0.83rem;
+        border-radius: 6px;
+      }
+      /* Delete button — smaller */
+      .btn-remove {
+        width: 22px;
+        height: 22px;
+        font-size: 0.82rem;
+      }
+
+      /* Slider row — slimmer under each entry */
+      .entry-slider-row { padding: 0px 26px 3px 35px; }
+      .entry-range { height: 4px; }
+      .entry-range::-webkit-slider-thumb { width: 15px; height: 15px; }
+      .entry-range::-moz-range-thumb     { width: 15px; height: 15px; }
+
+      /* Bottom buttons */
+      .btn-add  { padding: 7px; font-size: 0.8rem; }
+      .btn-save { padding: 9px 12px; font-size: 0.83rem; margin-top: 8px; }
+      .btn-reset{ padding: 9px 12px; font-size: 0.83rem; margin-top: 6px; }
+
+      /* Bulk import section */
+      .bulk-section { margin-top: 8px; padding-top: 8px; }
+      .btn-bulk-toggle { padding: 7px 10px; font-size: 0.8rem; }
     }
 
     /* Small tablet — left char only, beside wheel */
