@@ -553,13 +553,23 @@
     .btn-edit .edit-icon  { font-size: 1.15rem; line-height: 1; }
     .btn-edit .edit-label { font-size: 0.54rem; letter-spacing: 0.06em; line-height: 1; }
 
-    /* ── Wheel scene (wheel + character side by side) ── */
-    .wheel-scene {
+    /* ── Outer scene (wheel + controls + characters) ── */
+    .outer-scene {
       display: flex;
+      flex-direction: row;
       align-items: flex-end;
       justify-content: center;
       width: 100%;
       overflow: hidden;
+    }
+
+    /* Wraps just the wheel and spin button column */
+    .wheel-and-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      flex-shrink: 1;
     }
 
     /* ── Character ── */
@@ -653,16 +663,35 @@
        Responsive breakpoints
     ───────────────────────────────────────────────── */
 
-    /* Mobile — no characters, full-width wheel */
+    /* Mobile — wheel full width, characters shown below spin button */
     @media (max-width: 559px) {
-      .character, .character-right { display: none; }
+      .outer-scene {
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .wheel-and-controls {
+        width: 100%;
+        order: 0;
+        gap: 14px;
+      }
       #wheel {
         width: calc(100vw - 32px);
         height: calc(100vw - 32px);
       }
+      /* Both characters appear side-by-side below the spin button */
+      .character, .character-right {
+        order: 10;
+        width: clamp(90px, 40vw, 150px);
+        height: auto;
+        margin: 0;
+        flex-shrink: 0;
+        -webkit-mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+        mask-image: linear-gradient(to bottom, black 75%, transparent 100%);
+        filter: drop-shadow(0 -6px 16px rgba(140,70,0,0.45));
+      }
     }
 
-    /* Small tablet — left char only, smaller sizes */
+    /* Small tablet — left char only, beside wheel */
     @media (min-width: 560px) and (max-width: 859px) {
       .character-right { display: none; }
       .character { width: clamp(110px, 22vw, 160px); margin-right: -16px; }
@@ -672,7 +701,7 @@
       }
     }
 
-    /* Desktop — both characters */
+    /* Desktop — both characters beside wheel */
     @media (min-width: 860px) {
       .character       { width: clamp(160px, 17vw, 200px); }
       .character-right { width: clamp(160px, 17vw, 200px); }
@@ -771,45 +800,48 @@
     </button>
   </div>
 
-  <div class="wheel-scene">
-  <div class="wheel-wrapper">
-    <!-- Golden diamond pointer -->
-    <div class="pointer-wrap">
-      <svg width="34" height="46" viewBox="0 0 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%"   stop-color="#FFFACD"/>
-            <stop offset="35%"  stop-color="#FFD700"/>
-            <stop offset="65%"  stop-color="#C5A028"/>
-            <stop offset="100%" stop-color="#6B4F0A"/>
-          </linearGradient>
-          <linearGradient id="pgh" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%"   stop-color="rgba(255,255,255,0)"/>
-            <stop offset="50%"  stop-color="rgba(255,255,255,0.35)"/>
-            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-          </linearGradient>
-        </defs>
-        <polygon points="17,1 33,17 17,45 1,17" fill="url(#pg)" stroke="#6B4F0A" stroke-width="1.5"/>
-        <polygon points="17,5 29,17 17,39 5,17" fill="url(#pgh)"/>
-        <circle cx="17" cy="17" r="3.5" fill="rgba(255,250,220,0.8)"/>
-      </svg>
+  <div class="outer-scene">
+    <div class="wheel-and-controls">
+      <div class="wheel-wrapper">
+        <!-- Golden diamond pointer -->
+        <div class="pointer-wrap">
+          <svg width="34" height="46" viewBox="0 0 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%"   stop-color="#FFFACD"/>
+                <stop offset="35%"  stop-color="#FFD700"/>
+                <stop offset="65%"  stop-color="#C5A028"/>
+                <stop offset="100%" stop-color="#6B4F0A"/>
+              </linearGradient>
+              <linearGradient id="pgh" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%"   stop-color="rgba(255,255,255,0)"/>
+                <stop offset="50%"  stop-color="rgba(255,255,255,0.35)"/>
+                <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+              </linearGradient>
+            </defs>
+            <polygon points="17,1 33,17 17,45 1,17" fill="url(#pg)" stroke="#6B4F0A" stroke-width="1.5"/>
+            <polygon points="17,5 29,17 17,39 5,17" fill="url(#pgh)"/>
+            <circle cx="17" cy="17" r="3.5" fill="rgba(255,250,220,0.8)"/>
+          </svg>
+        </div>
+
+        <div class="canvas-relative">
+          <canvas id="wheel" width="500" height="500"></canvas>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="spinBtn" onclick="spin()">スピン！</button>
+        <div id="result"></div>
+      </div>
     </div>
 
-    <div class="canvas-relative">
-      <canvas id="wheel" width="500" height="500"></canvas>
-    </div>
-  </div>
-  <img class="character"
-       src="assets/47ea0949-9420-4db6-aaeb-9ccd549ab2b3.png"
-       alt="キャラクター左">
-  <img class="character-right"
-       src="assets/8ad93512-233c-4afc-9a91-fdb8f462b205.png"
-       alt="キャラクター右">
-  </div>
-
-  <div class="controls">
-    <button id="spinBtn" onclick="spin()">スピン！</button>
-    <div id="result"></div>
+    <img class="character"
+         src="assets/47ea0949-9420-4db6-aaeb-9ccd549ab2b3.png"
+         alt="キャラクター左">
+    <img class="character-right"
+         src="assets/8ad93512-233c-4afc-9a91-fdb8f462b205.png"
+         alt="キャラクター右">
   </div>
 
   <!-- Settings modal (bottom-sheet) -->
@@ -935,51 +967,34 @@
         .filter(e => e.name !== '' && e.ratio > 0);
     }
 
-    function drawAvatar(ctx, image, x, y, size, fallbackLabel) {
+    function drawSegmentImage(ctx, image, cx, cy, innerR, outerR, startAngle, endAngle) {
       ctx.save();
       ctx.beginPath();
-      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, outerR, startAngle, endAngle);
+      ctx.closePath();
       ctx.clip();
 
       if (image && image.complete && image.naturalWidth > 0) {
         const srcW = image.naturalWidth;
         const srcH = image.naturalHeight;
-        const srcRatio = srcW / srcH;
-        const dstRatio = 1;
-        let drawW = srcW;
-        let drawH = srcH;
-        let sx = 0;
-        let sy = 0;
-
-        if (srcRatio > dstRatio) {
-          drawW = srcH * dstRatio;
-          sx = (srcW - drawW) / 2;
-        } else {
-          drawH = srcW / dstRatio;
-          sy = (srcH - drawH) / 2;
-        }
-
-        ctx.drawImage(image, sx, sy, drawW, drawH, x - size / 2, y - size / 2, size, size);
+        const dstW = outerR * 2;
+        const dstH = outerR * 2;
+        const scale = Math.max(dstW / srcW, dstH / srcH);
+        const drawW = srcW * scale;
+        const drawH = srcH * scale;
+        const dx = cx - drawW / 2;
+        const dy = cy - drawH / 2;
+        ctx.drawImage(image, dx, dy, drawW, drawH);
       } else {
-        const bg = ctx.createLinearGradient(x - size / 2, y - size / 2, x + size / 2, y + size / 2);
-        bg.addColorStop(0, '#3D0B6E');
-        bg.addColorStop(1, '#1E1E1E');
-        ctx.fillStyle = bg;
-        ctx.fillRect(x - size / 2, y - size / 2, size, size);
-
-        ctx.fillStyle = '#FFD700';
-        ctx.font = `bold ${Math.max(10, Math.floor(size * 0.28))}px 'Noto Serif JP','Hiragino Mincho ProN',serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(fallbackLabel, x, y);
+        const fallback = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+        fallback.addColorStop(0, '#3D0B6E');
+        fallback.addColorStop(1, '#1E1E1E');
+        ctx.fillStyle = fallback;
+        ctx.fillRect(cx - outerR, cy - outerR, outerR * 2, outerR * 2);
       }
 
       ctx.restore();
-      ctx.beginPath();
-      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
-      ctx.strokeStyle = '#F5DEB3';
-      ctx.lineWidth = 2;
-      ctx.stroke();
     }
 
     // ── Draw ─────────────────────────────────────────────────
@@ -1021,6 +1036,7 @@
           const sweep    = (entry.ratio / total) * 2 * Math.PI;
           const color    = SEG_COLORS[entry.origIdx % SEG_COLORS.length];
           const isWinner = (i === winnerInList);
+          const fs = Math.min(17, Math.max(10, Math.floor(210 / Math.max(valid.length, 3))));
 
           // Base segment
           ctx.beginPath();
@@ -1029,6 +1045,8 @@
           ctx.closePath();
           ctx.fillStyle = color;
           ctx.fill();
+
+          drawSegmentImage(ctx, getImageElement(entry.image), cx, cy, 0, R, angle, angle + sweep);
 
           // Subtle radial pattern overlay for texture
           const mid = angle + sweep / 2;
@@ -1071,31 +1089,41 @@
           ctx.restore();
 
           // ── Text ──────────────────────────────
-          const avatarR = R * 0.48;
-          const textR   = R * 0.70;
-          const ax      = cx + Math.cos(mid) * avatarR;
-          const ay      = cy + Math.sin(mid) * avatarR;
-          const tx      = cx + Math.cos(mid) * textR;
-          const ty      = cy + Math.sin(mid) * textR;
+          const labelR  = R * 0.62;
+          const tx      = cx + Math.cos(mid) * labelR;
+          const ty      = cy + Math.sin(mid) * labelR;
 
-          const fs = Math.min(17, Math.max(10, Math.floor(210 / Math.max(valid.length, 3))));
           ctx.save();
-          ctx.textAlign    = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.font         = `bold ${fs}px 'Noto Serif JP','Hiragino Mincho ProN',serif`;
-
-          // Halo for readability
-          ctx.shadowColor  = 'rgba(0,0,0,0.9)';
-          ctx.shadowBlur   = 6;
-          ctx.fillStyle    = segTextColor(color);
-
+          ctx.font = `bold ${fs}px 'Noto Serif JP','Hiragino Mincho ProN',serif`;
           let label = entry.name;
           while (label.length > 1 && ctx.measureText(label).width > R * 0.5) {
             label = label.slice(0, -1);
           }
           if (label !== entry.name) label = label.slice(0, -1) + '…';
 
-          drawAvatar(ctx, getImageElement(entry.image), ax, ay, 34, entry.name.charAt(0));
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, R, angle, angle + sweep);
+          ctx.closePath();
+          const overlay = ctx.createLinearGradient(
+            cx + Math.cos(mid) * -R,
+            cy + Math.sin(mid) * -R,
+            cx + Math.cos(mid) * R,
+            cy + Math.sin(mid) * R
+          );
+          overlay.addColorStop(0, 'rgba(0,0,0,0.12)');
+          overlay.addColorStop(0.75, 'rgba(0,0,0,0.3)');
+          overlay.addColorStop(1, 'rgba(0,0,0,0.5)');
+          ctx.fillStyle = overlay;
+          ctx.fill();
+          ctx.restore();
+
+          ctx.textAlign    = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor  = 'rgba(0,0,0,0.95)';
+          ctx.shadowBlur   = 8;
+          ctx.fillStyle    = '#FFF4B8';
           ctx.fillText(label, tx, ty);
           ctx.restore();
 
