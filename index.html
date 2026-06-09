@@ -1027,6 +1027,8 @@
     }
 
     function drawSegmentImage(ctx, image, cx, cy, innerR, outerR, startAngle, endAngle) {
+      if (!(image && image.complete && image.naturalWidth > 0)) return;
+
       ctx.save();
       ctx.beginPath();
       ctx.moveTo(cx, cy);
@@ -1034,24 +1036,16 @@
       ctx.closePath();
       ctx.clip();
 
-      if (image && image.complete && image.naturalWidth > 0) {
-        const srcW = image.naturalWidth;
-        const srcH = image.naturalHeight;
-        const dstW = outerR * 2;
-        const dstH = outerR * 2;
-        const scale = Math.min(dstW / srcW, dstH / srcH) * 1.12;
-        const drawW = srcW * scale;
-        const drawH = srcH * scale;
-        const dx = cx - drawW / 2;
-        const dy = cy - drawH / 2;
-        ctx.drawImage(image, dx, dy, drawW, drawH);
-      } else {
-        const fallback = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
-        fallback.addColorStop(0, '#3D0B6E');
-        fallback.addColorStop(1, '#1E1E1E');
-        ctx.fillStyle = fallback;
-        ctx.fillRect(cx - outerR, cy - outerR, outerR * 2, outerR * 2);
-      }
+      const srcW = image.naturalWidth;
+      const srcH = image.naturalHeight;
+      const dstW = outerR * 2;
+      const dstH = outerR * 2;
+      const scale = Math.min(dstW / srcW, dstH / srcH) * 1.12;
+      const drawW = srcW * scale;
+      const drawH = srcH * scale;
+      const dx = cx - drawW / 2;
+      const dy = cy - drawH / 2;
+      ctx.drawImage(image, dx, dy, drawW, drawH);
 
       ctx.restore();
     }
