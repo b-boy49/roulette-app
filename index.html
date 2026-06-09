@@ -61,9 +61,9 @@
 
     #wheel {
       display: block;
-      max-width: min(460px, calc(100vw - 32px));
-      height: auto;
-      /* Outer glow */
+      /* Width and height must match — canvas ignores height:auto */
+      width: min(460px, calc(100vw - 32px));
+      height: min(460px, calc(100vw - 32px));
       filter: drop-shadow(0 0 24px rgba(200, 150, 0, 0.5));
     }
 
@@ -215,6 +215,49 @@
       outline: none;
       border-color: #FFD700;
       background: rgba(255, 215, 0, 0.1);
+    }
+
+    .entry-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid rgba(184, 134, 20, 0.6);
+      background: rgba(255, 215, 0, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.08) inset;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
+      padding: 0;
+    }
+
+    .entry-avatar:hover {
+      border-color: #FFD700;
+      background: rgba(255, 215, 0, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .entry-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .entry-avatar-placeholder {
+      color: rgba(255, 215, 0, 0.72);
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      text-align: center;
+      padding: 0 3px;
+    }
+
+    .entry-file {
+      display: none;
     }
 
     .entry-ratio {
@@ -436,13 +479,18 @@
     .title-row {
       display: flex;
       align-items: center;
-      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      width: 100%;
+      text-align: center;
     }
 
     .canvas-relative {
       position: relative;
       line-height: 0;
-      display: inline-block;
+      display: block;
+      flex-shrink: 1;
     }
 
     .btn-edit {
@@ -510,6 +558,8 @@
       display: flex;
       align-items: flex-end;
       justify-content: center;
+      width: 100%;
+      overflow: hidden;
     }
 
     /* ── Character ── */
@@ -599,12 +649,37 @@
       animation: charExcited 0.42s ease-in-out 0.05s infinite !important;
     }
 
-    @media (max-width: 740px) {
-      .character-right { display: none; }
+    /* ─────────────────────────────────────────────────
+       Responsive breakpoints
+    ───────────────────────────────────────────────── */
+
+    /* Mobile — no characters, full-width wheel */
+    @media (max-width: 559px) {
+      .character, .character-right { display: none; }
+      #wheel {
+        width: calc(100vw - 32px);
+        height: calc(100vw - 32px);
+      }
     }
 
-    @media (max-width: 540px) {
-      .character { display: none; }
+    /* Small tablet — left char only, smaller sizes */
+    @media (min-width: 560px) and (max-width: 859px) {
+      .character-right { display: none; }
+      .character { width: clamp(110px, 22vw, 160px); margin-right: -16px; }
+      #wheel {
+        width: min(420px, calc(100vw - clamp(110px, 22vw, 160px) - 32px));
+        height: min(420px, calc(100vw - clamp(110px, 22vw, 160px) - 32px));
+      }
+    }
+
+    /* Desktop — both characters */
+    @media (min-width: 860px) {
+      .character       { width: clamp(160px, 17vw, 200px); }
+      .character-right { width: clamp(160px, 17vw, 200px); }
+      #wheel {
+        width: min(460px, calc(100vw - clamp(160px,17vw,200px) * 2 - 32px));
+        height: min(460px, calc(100vw - clamp(160px,17vw,200px) * 2 - 32px));
+      }
     }
 
     /* ── Panel overlay (modal bottom-sheet) ── */
@@ -679,9 +754,10 @@
       color: #F88;
     }
 
-    @media (max-width: 440px) {
-      h1 { font-size: 1.6rem; }
-      #spinBtn { padding: 12px 40px; font-size: 1rem; }
+    /* Extra-small phones */
+    @media (max-width: 400px) {
+      h1 { font-size: 1.2rem; letter-spacing: 0.05em; }
+      #spinBtn { padding: 10px 28px; font-size: 0.95rem; }
     }
   </style>
 </head>
@@ -792,22 +868,118 @@
       return color === '#EDD5A0' ? '#5C2B00' : '#FFD700';
     }
 
-    let entries = [
-      { name: 'Aさん', ratio: 1 },
-      { name: 'Bさん', ratio: 1 },
-      { name: 'Cさん', ratio: 1 },
-    ];
+    const STORAGE_KEY = 'roulette-app-entries-v1';
+
+    function createDefaultEntries() {
+      return [
+        { name: 'Aさん', ratio: 1, image: '' },
+        { name: 'Bさん', ratio: 1, image: '' },
+        { name: 'Cさん', ratio: 1, image: '' },
+      ];
+    }
+
+    function normalizeEntry(entry) {
+      return {
+        name: typeof entry?.name === 'string' ? entry.name : '',
+        ratio: Number(entry?.ratio) > 0 ? Number(entry.ratio) : 1,
+        image: typeof entry?.image === 'string' ? entry.image : '',
+      };
+    }
+
+    function loadEntries() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return createDefaultEntries();
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed) || parsed.length === 0) return createDefaultEntries();
+        return parsed.map(normalizeEntry);
+      } catch {
+        return createDefaultEntries();
+      }
+    }
+
+    let entries = loadEntries();
 
     let currentAngle = 0;
     let isSpinning   = false;
     let winnerInList = -1;
+    const imageCache  = new Map();
 
     // ── Helpers ──────────────────────────────────────────────
 
+    function saveEntries() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+      } catch {
+        // Ignore storage quota/security errors.
+      }
+    }
+
+    function getImageElement(src) {
+      if (!src) return null;
+      let cached = imageCache.get(src);
+      if (cached) return cached;
+
+      const img = new Image();
+      img.decoding = 'async';
+      img.onload = () => drawWheel();
+      img.onerror = () => drawWheel();
+      img.src = src;
+      imageCache.set(src, img);
+      return img;
+    }
+
     function getValid() {
       return entries
-        .map((e, i) => ({ name: e.name.trim(), ratio: Number(e.ratio), origIdx: i }))
+        .map((e, i) => ({ name: e.name.trim(), ratio: Number(e.ratio), image: e.image || '', origIdx: i }))
         .filter(e => e.name !== '' && e.ratio > 0);
+    }
+
+    function drawAvatar(ctx, image, x, y, size, fallbackLabel) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+      ctx.clip();
+
+      if (image && image.complete && image.naturalWidth > 0) {
+        const srcW = image.naturalWidth;
+        const srcH = image.naturalHeight;
+        const srcRatio = srcW / srcH;
+        const dstRatio = 1;
+        let drawW = srcW;
+        let drawH = srcH;
+        let sx = 0;
+        let sy = 0;
+
+        if (srcRatio > dstRatio) {
+          drawW = srcH * dstRatio;
+          sx = (srcW - drawW) / 2;
+        } else {
+          drawH = srcW / dstRatio;
+          sy = (srcH - drawH) / 2;
+        }
+
+        ctx.drawImage(image, sx, sy, drawW, drawH, x - size / 2, y - size / 2, size, size);
+      } else {
+        const bg = ctx.createLinearGradient(x - size / 2, y - size / 2, x + size / 2, y + size / 2);
+        bg.addColorStop(0, '#3D0B6E');
+        bg.addColorStop(1, '#1E1E1E');
+        ctx.fillStyle = bg;
+        ctx.fillRect(x - size / 2, y - size / 2, size, size);
+
+        ctx.fillStyle = '#FFD700';
+        ctx.font = `bold ${Math.max(10, Math.floor(size * 0.28))}px 'Noto Serif JP','Hiragino Mincho ProN',serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fallbackLabel, x, y);
+      }
+
+      ctx.restore();
+      ctx.beginPath();
+      ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = '#F5DEB3';
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
 
     // ── Draw ─────────────────────────────────────────────────
@@ -899,9 +1071,12 @@
           ctx.restore();
 
           // ── Text ──────────────────────────────
-          const textR = R * 0.62;
-          const tx    = cx + Math.cos(mid) * textR;
-          const ty    = cy + Math.sin(mid) * textR;
+          const avatarR = R * 0.48;
+          const textR   = R * 0.70;
+          const ax      = cx + Math.cos(mid) * avatarR;
+          const ay      = cy + Math.sin(mid) * avatarR;
+          const tx      = cx + Math.cos(mid) * textR;
+          const ty      = cy + Math.sin(mid) * textR;
 
           const fs = Math.min(17, Math.max(10, Math.floor(210 / Math.max(valid.length, 3))));
           ctx.save();
@@ -920,6 +1095,7 @@
           }
           if (label !== entry.name) label = label.slice(0, -1) + '…';
 
+          drawAvatar(ctx, getImageElement(entry.image), ax, ay, 34, entry.name.charAt(0));
           ctx.fillText(label, tx, ty);
           ctx.restore();
 
@@ -1098,14 +1274,16 @@
       entries.forEach(e => { e.ratio = 1; });
       renderList();
       drawWheel();
+      saveEntries();
     }
 
     function addEntry() {
-      entries.push({ name: '', ratio: 1 });
+      entries.push({ name: '', ratio: 1, image: '' });
       renderList();
       const inputs = document.querySelectorAll('.entry-name');
       if (inputs.length) inputs[inputs.length - 1].focus();
       drawWheel();
+      saveEntries();
     }
 
     function removeEntry(i) {
@@ -1113,6 +1291,7 @@
       entries.splice(i, 1);
       renderList();
       drawWheel();
+      saveEntries();
     }
 
     // Updates the gold fill on a range input based on its current value
@@ -1144,7 +1323,11 @@
         nameIn.value       = e.name;
         nameIn.placeholder = `選択肢 ${i + 1}`;
         nameIn.maxLength   = 20;
-        nameIn.oninput     = ev => { entries[i].name = ev.target.value; drawWheel(); };
+        nameIn.oninput     = ev => {
+          entries[i].name = ev.target.value;
+          drawWheel();
+          saveEntries();
+        };
 
         // Paste handler: multi-line paste → bulk import from this row onwards
         nameIn.addEventListener('paste', ev => {
@@ -1181,6 +1364,7 @@
           rangeIn.value     = Math.min(v, 20);
           updateSliderFill(rangeIn);
           drawWheel();
+          saveEntries();
         };
 
         // Sync: slider → number input (real-time while dragging)
@@ -1190,7 +1374,43 @@
           ratioIn.value    = v;
           updateSliderFill(rangeIn);
           drawWheel();
+          saveEntries();
         };
+
+        const avatarBtn = document.createElement('label');
+        avatarBtn.className = 'entry-avatar';
+        avatarBtn.title = '画像を選択';
+
+        const avatarImg = document.createElement('img');
+        avatarImg.alt = 'アイコン';
+        if (e.image) avatarImg.src = e.image;
+        avatarImg.style.display = e.image ? 'block' : 'none';
+
+        const avatarPlaceholder = document.createElement('span');
+        avatarPlaceholder.className = 'entry-avatar-placeholder';
+        avatarPlaceholder.textContent = e.image ? '' : '画像';
+        avatarPlaceholder.style.display = e.image ? 'none' : 'block';
+
+        const fileIn = document.createElement('input');
+        fileIn.type = 'file';
+        fileIn.accept = 'image/*';
+        fileIn.className = 'entry-file';
+        fileIn.addEventListener('change', ev => {
+          const file = ev.target.files && ev.target.files[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = () => {
+            entries[i].image = String(reader.result || '');
+            avatarImg.src = entries[i].image;
+            avatarImg.style.display = 'block';
+            avatarPlaceholder.style.display = 'none';
+            drawWheel();
+            saveEntries();
+            fileIn.value = '';
+          };
+          reader.readAsDataURL(file);
+        });
 
         const rm = document.createElement('button');
         rm.className   = 'btn-remove';
@@ -1198,7 +1418,8 @@
         rm.title       = '削除';
         rm.onclick     = () => removeEntry(i);
 
-        row.append(dot, nameIn, ratioIn, rm);
+        avatarBtn.append(avatarImg, avatarPlaceholder, fileIn);
+        row.append(dot, nameIn, avatarBtn, ratioIn, rm);
         sliderRow.append(rangeIn);
 
         list.appendChild(row);
@@ -1234,7 +1455,7 @@
         const name  = parts[0].trim();
         const raw   = parts.length > 1 ? parts[1].trim() : '';
         const ratio = Math.max(1, parseInt(raw, 10) || 1);
-        return { name, ratio };
+        return { name, ratio, image: '' };
       }).filter(e => e.name !== '');
 
       if (parsed.length === 0) return;
@@ -1242,6 +1463,7 @@
       entries.splice(startIdx, entries.length - startIdx, ...parsed);
       renderList();
       drawWheel();
+      saveEntries();
     }
 
     // ── Panel modal ───────────────────────────────────────────
