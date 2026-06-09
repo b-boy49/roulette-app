@@ -1084,6 +1084,39 @@
       return img;
     }
 
+    function loadImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('file read failed'));
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error('image decode failed'));
+          img.src = String(reader.result || '');
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function compressImageFile(file, maxSize = 320, quality = 0.86) {
+      const img = await loadImageFromFile(file);
+      const scale = Math.min(1, maxSize / Math.max(img.naturalWidth, img.naturalHeight));
+      const width = Math.max(1, Math.round(img.naturalWidth * scale));
+      const height = Math.max(1, Math.round(img.naturalHeight * scale));
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      try {
+        return canvas.toDataURL('image/webp', quality);
+      } catch {
+        return canvas.toDataURL('image/jpeg', quality);
+      }
+    }
+
     function getValid() {
       return entries
         .map((e, i) => ({ name: e.name.trim(), ratio: Number(e.ratio), image: e.image || '', color: e.color || defaultColorForIndex(i), origIdx: i }))
@@ -1733,17 +1766,17 @@
           const file = ev.target.files && ev.target.files[0];
           if (!file) return;
 
-          const reader = new FileReader();
-          reader.onload = () => {
-            entries[i].image = String(reader.result || '');
+          compressImageFile(file).then(dataUrl => {
+            entries[i].image = dataUrl;
             avatarImg.src = entries[i].image;
             avatarImg.style.display = 'block';
             avatarPlaceholder.style.display = 'none';
             drawWheel();
             saveEntries();
             fileIn.value = '';
-          };
-          reader.readAsDataURL(file);
+          }).catch(() => {
+            fileIn.value = '';
+          });
         });
 
         const rm = document.createElement('button');
