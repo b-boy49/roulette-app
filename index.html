@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ビボレット</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@700;900&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: url('assets/3a9380b9-2643-44ed-8138-5a32c31a9b01.png') center / cover no-repeat scroll;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 48px;
+      gap: 18px;
+      font-family: 'Noto Serif JP', 'Hiragino Mincho ProN', serif;
+    }
+
+    /* Dark overlay so content stays readable */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 0;
+    }
+
+    body > * { position: relative; z-index: 1; }
+
+    /* ── Title ── */
+    h1 {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 0.2em;
+      background: linear-gradient(180deg,
+        #FFFACD 0%, #FFD700 30%, #FFF8A0 50%, #C5A028 70%, #8B6914 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 2px 8px rgba(200, 150, 0, 0.7));
+      text-align: center;
+    }
+
+    /* ── Wheel wrapper ── */
+    .wheel-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Golden diamond pointer */
+    .pointer-wrap {
+      margin-bottom: -3px;
+      z-index: 2;
+      filter: drop-shadow(0 4px 12px rgba(255, 200, 0, 0.9));
+    }
+
+    #wheel {
+      display: block;
+      max-width: min(460px, calc(100vw - 32px));
+      height: auto;
+      /* Outer glow */
+      filter: drop-shadow(0 0 24px rgba(200, 150, 0, 0.5));
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    #spinBtn {
+      background: linear-gradient(135deg,
+        #8B6914 0%, #C5A028 25%, #FFD700 45%,
+        #FFFACD 50%, #FFD700 55%, #C5A028 75%, #8B6914 100%);
+      color: #2D1100;
+      border: 2px solid #6B4F0A;
+      padding: 14px 64px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      font-family: inherit;
+      letter-spacing: 0.2em;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow:
+        0 4px 20px rgba(184,134,11,0.55),
+        inset 0 1px 0 rgba(255,255,255,0.4),
+        inset 0 -2px 0 rgba(0,0,0,0.2);
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    }
+
+    #spinBtn:hover:not(:disabled) {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 28px rgba(255,200,0,0.65), inset 0 1px 0 rgba(255,255,255,0.4);
+      filter: brightness(1.08);
+    }
+
+    #spinBtn:active:not(:disabled) { transform: translateY(0); }
+
+    #spinBtn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    /* ── Result ── */
+    @keyframes luxuryPop {
+      0%   { opacity: 0; transform: scale(0.5) translateY(10px); }
+      60%  { transform: scale(1.12) translateY(-4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    #result {
+      min-height: 44px;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-align: center;
+      background: linear-gradient(180deg, #FFFACD 0%, #FFD700 40%, #C5A028 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 0 16px rgba(255, 215, 0, 0.8));
+    }
+
+    #result.animate {
+      animation: luxuryPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+
+    /* ── Settings Panel ── */
+    .panel {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(4, 2, 12, 0.86);
+      border: 1px solid rgba(184, 134, 20, 0.75);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow:
+        0 8px 36px rgba(0,0,0,0.6),
+        inset 0 0 40px rgba(0,0,0,0.4),
+        0 0 0 1px rgba(255, 220, 50, 0.1) inset;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(184,134,20,0.4);
+    }
+
+    .panel-header h2 {
+      font-size: 1rem;
+      letter-spacing: 0.12em;
+      background: linear-gradient(135deg, #FFD700, #FFFACD, #C5A028);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .col-labels {
+      display: flex;
+      gap: 8px;
+      font-size: 0.7rem;
+      color: rgba(184,134,20,0.7);
+      letter-spacing: 0.1em;
+      margin-bottom: 6px;
+      padding: 0 32px 0 22px;
+    }
+    .col-labels .lbl-name  { flex: 1; }
+    .col-labels .lbl-ratio { width: 58px; text-align: center; }
+
+    #entryList {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .entry-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .entry-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      box-shadow: 0 0 5px rgba(255,215,0,0.3);
+    }
+
+    .entry-name {
+      flex: 1;
+      background: rgba(255, 215, 0, 0.06);
+      border: 1px solid rgba(184, 134, 20, 0.5);
+      color: #F5DEB3;
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .entry-name::placeholder { color: rgba(184,134,20,0.4); }
+    .entry-name:focus {
+      outline: none;
+      border-color: #FFD700;
+      background: rgba(255, 215, 0, 0.1);
+    }
+
+    .entry-ratio {
+      width: 58px;
+      background: rgba(255, 215, 0, 0.06);
+      border: 1px solid rgba(184, 134, 20, 0.5);
+      color: #F5DEB3;
+      padding: 9px 6px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      text-align: center;
+      transition: border-color 0.15s;
+    }
+    .entry-ratio:focus { outline: none; border-color: #FFD700; }
+    .entry-ratio::-webkit-outer-spin-button,
+    .entry-ratio::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .entry-ratio { -moz-appearance: textfield; }
+
+    .btn-remove {
+      background: none;
+      border: 1px solid rgba(184,134,20,0.35);
+      color: rgba(184,134,20,0.6);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .btn-remove:hover {
+      background: rgba(200, 50, 50, 0.7);
+      border-color: #C00;
+      color: #fff;
+    }
+
+    .btn-add {
+      width: 100%;
+      background: transparent;
+      border: 1px dashed rgba(184, 134, 20, 0.55);
+      color: rgba(255, 215, 0, 0.8);
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-family: inherit;
+      letter-spacing: 0.1em;
+      transition: all 0.15s;
+    }
+    .btn-add:hover {
+      background: rgba(184, 134, 20, 0.12);
+      border-color: #FFD700;
+      color: #FFD700;
+    }
+
+    .btn-equal {
+      background: linear-gradient(135deg, #8B6914, #C5A028, #8B6914);
+      color: #FFFACD;
+      border: 1px solid #6B4F0A;
+      padding: 7px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-family: inherit;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      transition: filter 0.15s;
+    }
+    .btn-equal:hover { filter: brightness(1.2); }
+
+    /* ── Ratio slider ── */
+    .entry-slider-row {
+      /* align under name+ratio, skipping dot and remove btn */
+      padding: 1px 36px 5px 21px;
+    }
+
+    .entry-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 3px;
+      outline: none;
+      cursor: pointer;
+      /* fill updated via JS */
+      background: rgba(184,134,20,0.2);
+    }
+
+    .entry-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #FFFACD 0%, #FFD700 45%, #8B6914 100%);
+      border: 1.5px solid #6B4F0A;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.5), 0 0 8px rgba(255,215,0,0.25);
+      cursor: grab;
+      transition: transform 0.1s, box-shadow 0.1s;
+    }
+    .entry-range::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 1px 8px rgba(0,0,0,0.6), 0 0 14px rgba(255,215,0,0.55);
+    }
+    .entry-range::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid #6B4F0A;
+      background: radial-gradient(circle at 35% 35%, #FFFACD 0%, #FFD700 45%, #8B6914 100%);
+      cursor: grab;
+    }
+
+    /* ── Bulk import ── */
+    .bulk-section {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(184,134,20,0.2);
+    }
+
+    .btn-bulk-toggle {
+      width: 100%;
+      background: transparent;
+      border: 1px solid rgba(184,134,20,0.4);
+      color: rgba(255,215,0,0.7);
+      padding: 9px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-family: inherit;
+      letter-spacing: 0.06em;
+      text-align: left;
+      transition: all 0.15s;
+    }
+    .btn-bulk-toggle:hover {
+      background: rgba(184,134,20,0.1);
+      border-color: #FFD700;
+      color: #FFD700;
+    }
+
+    .bulk-area { margin-top: 10px; }
+
+    .bulk-hint {
+      font-size: 0.78rem;
+      color: rgba(255,215,0,0.6);
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    .bulk-hint code {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: rgba(255,200,50,0.5);
+      background: rgba(255,215,0,0.07);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    .bulk-textarea {
+      width: 100%;
+      background: rgba(255,215,0,0.05);
+      border: 1px solid rgba(184,134,20,0.5);
+      color: #F5DEB3;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-family: 'Menlo','Consolas',monospace;
+      resize: vertical;
+      min-height: 110px;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .bulk-textarea:focus {
+      border-color: #FFD700;
+      background: rgba(255,215,0,0.08);
+    }
+    .bulk-textarea::placeholder { color: rgba(184,134,20,0.35); font-size: 0.8rem; }
+
+    .bulk-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .btn-bulk-apply {
+      flex: 1;
+      background: linear-gradient(135deg, #8B6914, #C5A028, #8B6914);
+      color: #FFFACD;
+      border: 1px solid #6B4F0A;
+      padding: 9px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-family: inherit;
+      font-weight: bold;
+      letter-spacing: 0.06em;
+      transition: filter 0.15s;
+    }
+    .btn-bulk-apply:hover { filter: brightness(1.2); }
+
+    .btn-bulk-cancel {
+      background: transparent;
+      border: 1px solid rgba(184,134,20,0.4);
+      color: rgba(255,215,0,0.7);
+      padding: 9px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .btn-bulk-cancel:hover {
+      background: rgba(180,40,40,0.25);
+      border-color: #C44;
+      color: #F88;
+    }
+
+    /* ── Title row with edit button ── */
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .canvas-relative {
+      position: relative;
+      line-height: 0;
+      display: inline-block;
+    }
+
+    .btn-edit {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #FFFACD 0%, #FFD700 35%, #C5A028 65%, #8B6914 100%);
+      border: 2px solid #6B4F0A;
+      color: #3D1C00;
+      font-family: inherit;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      flex-shrink: 0;
+      box-shadow:
+        0 3px 12px rgba(0,0,0,0.5),
+        0 0 14px rgba(200,150,0,0.4),
+        inset 0 1px 0 rgba(255,255,255,0.4);
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+    }
+
+    @keyframes editPulse {
+      0%   { box-shadow: 0 3px 12px rgba(0,0,0,0.5), 0 0 10px rgba(255,215,0,0.4); }
+      50%  { box-shadow: 0 6px 24px rgba(0,0,0,0.6), 0 0 32px rgba(255,215,0,0.9), 0 0 56px rgba(255,180,0,0.45); }
+      100% { box-shadow: 0 3px 12px rgba(0,0,0,0.5), 0 0 10px rgba(255,215,0,0.4); }
+    }
+
+    @keyframes editIconWiggle {
+      0%   { transform: rotate(0deg); }
+      20%  { transform: rotate(-18deg); }
+      45%  { transform: rotate(14deg); }
+      65%  { transform: rotate(-10deg); }
+      80%  { transform: rotate(6deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    .btn-edit:hover {
+      transform: scale(1.15) translateY(-2px);
+      background: linear-gradient(145deg, #FFFFFF 0%, #FFFACD 20%, #FFE033 50%, #C5A028 80%, #8B6914 100%);
+      border-color: #FFD700;
+      color: #1a0800;
+      animation: editPulse 1.4s ease-in-out infinite;
+    }
+
+    .btn-edit:hover .edit-icon {
+      animation: editIconWiggle 0.55s ease-in-out forwards;
+      display: inline-block;
+    }
+
+    .btn-edit:active {
+      transform: scale(1.04) translateY(0);
+      filter: brightness(0.95);
+      animation: none;
+    }
+
+    .btn-edit .edit-icon  { font-size: 1.15rem; line-height: 1; }
+    .btn-edit .edit-label { font-size: 0.54rem; letter-spacing: 0.06em; line-height: 1; }
+
+    /* ── Wheel scene (wheel + character side by side) ── */
+    .wheel-scene {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    /* ── Character ── */
+    @keyframes charIn {
+      from { opacity: 0; transform: translateX(-36px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes charFloat {
+      0%, 100% { transform: translateY(0px); }
+      50%      { transform: translateY(-10px); }
+    }
+
+    /* Excited animation while wheel is spinning */
+    @keyframes charExcited {
+      0%   { transform: translateX(0)    translateY(0)    rotate(0deg)   scale(1);    }
+      7%   { transform: translateX(-9px) translateY(-18px) rotate(-8deg)  scale(1.07); }
+      14%  { transform: translateX(9px)  translateY(0)    rotate(8deg)   scale(0.96); }
+      21%  { transform: translateX(-7px) translateY(-22px) rotate(-6deg)  scale(1.08); }
+      28%  { transform: translateX(11px) translateY(0)    rotate(10deg)  scale(0.95); }
+      35%  { transform: translateX(-11px) translateY(-14px) rotate(-9deg) scale(1.06); }
+      42%  { transform: translateX(8px)  translateY(0)    rotate(7deg)   scale(0.97); }
+      49%  { transform: translateX(-6px) translateY(-20px) rotate(-5deg)  scale(1.07); }
+      56%  { transform: translateX(10px) translateY(0)    rotate(9deg)   scale(0.96); }
+      63%  { transform: translateX(-8px) translateY(-10px) rotate(-7deg)  scale(1.04); }
+      70%  { transform: translateX(6px)  translateY(0)    rotate(5deg)   scale(0.98); }
+      77%  { transform: translateX(-5px) translateY(-8px) rotate(-4deg)  scale(1.03); }
+      84%  { transform: translateX(5px)  translateY(0)    rotate(4deg)   scale(1);    }
+      91%  { transform: translateX(-3px) translateY(-4px) rotate(-2deg)  scale(1.01); }
+      100% { transform: translateX(0)    translateY(0)    rotate(0deg)   scale(1);    }
+    }
+
+    .character {
+      width: 200px;
+      height: auto;
+      flex-shrink: 0;
+      margin-right: -28px;   /* overlap left edge of wheel */
+      margin-bottom: -4px;
+      order: -1;             /* always first = left side */
+      object-fit: contain;
+      /* fade only the right edge where it meets the wheel */
+      -webkit-mask-image: linear-gradient(to left, transparent 0%, black 14%, black 100%);
+      mask-image: linear-gradient(to left, transparent 0%, black 14%, black 100%);
+      filter: drop-shadow(10px 0 22px rgba(140,70,0,0.55));
+      opacity: 0;
+      animation: charIn 0.9s ease-out 0.3s forwards;
+    }
+
+    .character.floating {
+      opacity: 1;
+      animation: charFloat 3.8s ease-in-out infinite;
+    }
+
+    .character.spinning {
+      opacity: 1;
+      animation: charExcited 0.45s ease-in-out infinite !important;
+    }
+
+    /* ── Right character ── */
+    @keyframes charInRight {
+      from { opacity: 0; transform: translateX(36px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .character-right {
+      width: 200px;
+      height: auto;
+      flex-shrink: 0;
+      margin-left: -28px;
+      margin-bottom: -4px;
+      object-fit: contain;
+      /* fade left edge (wheel overlap) and right edge */
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 14%, black 82%, transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0%, black 14%, black 82%, transparent 100%);
+      filter: drop-shadow(-10px 0 22px rgba(140,70,0,0.55));
+      opacity: 0;
+      animation: charInRight 0.9s ease-out 0.6s forwards;
+    }
+
+    .character-right.floating {
+      opacity: 1;
+      animation: charFloat 4.1s ease-in-out 0.2s infinite;
+    }
+
+    .character-right.spinning {
+      opacity: 1;
+      animation: charExcited 0.42s ease-in-out 0.05s infinite !important;
+    }
+
+    @media (max-width: 740px) {
+      .character-right { display: none; }
+    }
+
+    @media (max-width: 540px) {
+      .character { display: none; }
+    }
+
+    /* ── Panel overlay (modal bottom-sheet) ── */
+    .panel-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0 12px;
+      background: rgba(0,0,0,0);
+      pointer-events: none;
+      transition: background 0.28s;
+    }
+
+    .panel-overlay.open {
+      background: rgba(0,0,0,0.6);
+      pointer-events: all;
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+    }
+
+    /* Panel slide-up */
+    .panel-overlay .panel {
+      width: 100%;
+      max-width: 520px;
+      max-height: 88vh;
+      overflow-y: auto;
+      border-radius: 20px 20px 0 0;
+      transform: translateY(100%);
+      transition: transform 0.36s cubic-bezier(0.34, 1.1, 0.64, 1);
+      /* overscroll styling */
+      overscroll-behavior: contain;
+    }
+
+    .panel-overlay.open .panel {
+      transform: translateY(0);
+    }
+
+    /* Drag handle at top of sheet */
+    .panel-drag-handle {
+      width: 44px;
+      height: 5px;
+      background: rgba(184,134,20,0.45);
+      border-radius: 3px;
+      margin: 0 auto 14px;
+    }
+
+    .panel-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-panel-close {
+      background: none;
+      border: 1px solid rgba(184,134,20,0.4);
+      color: rgba(255,215,0,0.7);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 0.95rem;
+      line-height: 1;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-panel-close:hover {
+      background: rgba(200,50,50,0.45);
+      border-color: #C44;
+      color: #F88;
+    }
+
+    @media (max-width: 440px) {
+      h1 { font-size: 1.6rem; }
+      #spinBtn { padding: 12px 40px; font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="title-row">
+    <h1>✦ ビボレット ✦</h1>
+    <button class="btn-edit" onclick="togglePanel()" title="選択肢を編集">
+      <span class="edit-icon">✏</span>
+      <span class="edit-label">編集</span>
+    </button>
+  </div>
+
+  <div class="wheel-scene">
+  <div class="wheel-wrapper">
+    <!-- Golden diamond pointer -->
+    <div class="pointer-wrap">
+      <svg width="34" height="46" viewBox="0 0 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%"   stop-color="#FFFACD"/>
+            <stop offset="35%"  stop-color="#FFD700"/>
+            <stop offset="65%"  stop-color="#C5A028"/>
+            <stop offset="100%" stop-color="#6B4F0A"/>
+          </linearGradient>
+          <linearGradient id="pgh" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%"   stop-color="rgba(255,255,255,0)"/>
+            <stop offset="50%"  stop-color="rgba(255,255,255,0.35)"/>
+            <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+          </linearGradient>
+        </defs>
+        <polygon points="17,1 33,17 17,45 1,17" fill="url(#pg)" stroke="#6B4F0A" stroke-width="1.5"/>
+        <polygon points="17,5 29,17 17,39 5,17" fill="url(#pgh)"/>
+        <circle cx="17" cy="17" r="3.5" fill="rgba(255,250,220,0.8)"/>
+      </svg>
+    </div>
+
+    <div class="canvas-relative">
+      <canvas id="wheel" width="500" height="500"></canvas>
+    </div>
+  </div>
+  <img class="character"
+       src="assets/47ea0949-9420-4db6-aaeb-9ccd549ab2b3.png"
+       alt="キャラクター左">
+  <img class="character-right"
+       src="assets/8ad93512-233c-4afc-9a91-fdb8f462b205.png"
+       alt="キャラクター右">
+  </div>
+
+  <div class="controls">
+    <button id="spinBtn" onclick="spin()">スピン！</button>
+    <div id="result"></div>
+  </div>
+
+  <!-- Settings modal (bottom-sheet) -->
+  <div id="panelOverlay" class="panel-overlay" onclick="overlayClick(event)">
+    <div class="panel">
+      <div class="panel-drag-handle"></div>
+      <div class="panel-header">
+        <h2>⚙ 選択肢の設定</h2>
+        <div class="panel-header-actions">
+          <button class="btn-equal" onclick="equalizeRatios()">均等にする</button>
+          <button class="btn-panel-close" onclick="togglePanel()" title="閉じる">✕</button>
+        </div>
+      </div>
+      <div class="col-labels">
+        <span class="lbl-name">名前</span>
+        <span class="lbl-ratio">比率</span>
+      </div>
+      <div id="entryList"></div>
+      <button class="btn-add" onclick="addEntry()">＋ 追加</button>
+
+      <div class="bulk-section">
+        <button class="btn-bulk-toggle" id="bulkToggleBtn" onclick="toggleBulkInput()">
+          📋 Excelから一括入力
+        </button>
+        <div id="bulkArea" class="bulk-area" style="display:none">
+          <p class="bulk-hint">
+            エクセルで列をコピー → 下の欄に貼り付け → 適用<br>
+            <code>名前のみ1列</code> または <code>名前 [Tab] 比率</code> の2列に対応
+          </p>
+          <textarea id="bulkText" class="bulk-textarea"
+            placeholder="田中&#10;佐藤&#10;鈴木&#10;&#10;比率付きの場合（タブ区切り）:&#10;田中	3&#10;佐藤	2&#10;鈴木	1"></textarea>
+          <div class="bulk-actions">
+            <button class="btn-bulk-apply" onclick="applyBulk()">✔ 適用する</button>
+            <button class="btn-bulk-cancel" onclick="toggleBulkInput()">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Luxury color palette (cycling) — dark rich colors for gold text readability
+    const SEG_COLORS = [
+      '#9B1122', // deep crimson
+      '#EDD5A0', // champagne (light — dark text)
+      '#3D0B6E', // royal purple
+      '#1E1E1E', // near black
+      '#7B5000', // dark amber
+      '#7A0B2E', // deep burgundy
+      '#1A3A5C', // midnight blue
+      '#2C2C2C', // charcoal
+    ];
+
+    // Text color per segment (light bg needs dark text)
+    function segTextColor(color) {
+      return color === '#EDD5A0' ? '#5C2B00' : '#FFD700';
+    }
+
+    let entries = [
+      { name: 'Aさん', ratio: 1 },
+      { name: 'Bさん', ratio: 1 },
+      { name: 'Cさん', ratio: 1 },
+    ];
+
+    let currentAngle = 0;
+    let isSpinning   = false;
+    let winnerInList = -1;
+
+    // ── Helpers ──────────────────────────────────────────────
+
+    function getValid() {
+      return entries
+        .map((e, i) => ({ name: e.name.trim(), ratio: Number(e.ratio), origIdx: i }))
+        .filter(e => e.name !== '' && e.ratio > 0);
+    }
+
+    // ── Draw ─────────────────────────────────────────────────
+
+    function drawWheel() {
+      const canvas = document.getElementById('wheel');
+      const ctx    = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const cx = W / 2, cy = H / 2;
+      const R = 195;           // segment radius
+      const RIM_R = R + 17;    // rim centre radius
+      const RIM_W = 30;        // rim width
+
+      ctx.clearRect(0, 0, W, H);
+
+      const valid = getValid();
+      const total = valid.reduce((s, e) => s + e.ratio, 0);
+
+      // ── 1. Outer ambient glow ──────────────────
+      const outerGlow = ctx.createRadialGradient(cx, cy, R, cx, cy, R + 60);
+      outerGlow.addColorStop(0,   'rgba(200,150,0,0.35)');
+      outerGlow.addColorStop(0.5, 'rgba(200,100,0,0.1)');
+      outerGlow.addColorStop(1,   'rgba(0,0,0,0)');
+      ctx.beginPath();
+      ctx.arc(cx, cy, R + 60, 0, 2 * Math.PI);
+      ctx.fillStyle = outerGlow;
+      ctx.fill();
+
+      // ── 2. Segments ───────────────────────────
+      if (valid.length === 0) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, 2 * Math.PI);
+        ctx.fillStyle = '#1a0a00';
+        ctx.fill();
+      } else {
+        let angle = (currentAngle - 90) * Math.PI / 180;
+
+        valid.forEach((entry, i) => {
+          const sweep    = (entry.ratio / total) * 2 * Math.PI;
+          const color    = SEG_COLORS[entry.origIdx % SEG_COLORS.length];
+          const isWinner = (i === winnerInList);
+
+          // Base segment
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, R, angle, angle + sweep);
+          ctx.closePath();
+          ctx.fillStyle = color;
+          ctx.fill();
+
+          // Subtle radial pattern overlay for texture
+          const mid = angle + sweep / 2;
+          const texGrd = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+          texGrd.addColorStop(0,   'rgba(255,215,0,0.08)');
+          texGrd.addColorStop(0.6, 'rgba(0,0,0,0)');
+          texGrd.addColorStop(1,   'rgba(0,0,0,0.2)');
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.arc(cx, cy, R, angle, angle + sweep);
+          ctx.closePath();
+          ctx.fillStyle = texGrd;
+          ctx.fill();
+
+          // Winner glow
+          if (isWinner) {
+            ctx.save();
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur  = 30;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, R, angle, angle + sweep);
+            ctx.closePath();
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth   = 5;
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // Gold spoke dividers
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(cx + Math.cos(angle) * R, cy + Math.sin(angle) * R);
+          ctx.strokeStyle = '#C5A028';
+          ctx.lineWidth   = 2.5;
+          ctx.shadowColor = 'rgba(200,150,0,0.4)';
+          ctx.shadowBlur  = 3;
+          ctx.stroke();
+          ctx.restore();
+
+          // ── Text ──────────────────────────────
+          const textR = R * 0.62;
+          const tx    = cx + Math.cos(mid) * textR;
+          const ty    = cy + Math.sin(mid) * textR;
+
+          const fs = Math.min(17, Math.max(10, Math.floor(210 / Math.max(valid.length, 3))));
+          ctx.save();
+          ctx.textAlign    = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.font         = `bold ${fs}px 'Noto Serif JP','Hiragino Mincho ProN',serif`;
+
+          // Halo for readability
+          ctx.shadowColor  = 'rgba(0,0,0,0.9)';
+          ctx.shadowBlur   = 6;
+          ctx.fillStyle    = segTextColor(color);
+
+          let label = entry.name;
+          while (label.length > 1 && ctx.measureText(label).width > R * 0.5) {
+            label = label.slice(0, -1);
+          }
+          if (label !== entry.name) label = label.slice(0, -1) + '…';
+
+          ctx.fillText(label, tx, ty);
+          ctx.restore();
+
+          angle += sweep;
+        });
+      }
+
+      // ── 3. Gold rim (layered for depth) ───────
+      // Dark base
+      ctx.beginPath();
+      ctx.arc(cx, cy, RIM_R, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#6B4F0A';
+      ctx.lineWidth   = RIM_W + 4;
+      ctx.stroke();
+
+      // Main gold
+      const rimGrd = ctx.createLinearGradient(cx - RIM_R, cy, cx + RIM_R, cy);
+      rimGrd.addColorStop(0,    '#7B5B0A');
+      rimGrd.addColorStop(0.2,  '#C5A028');
+      rimGrd.addColorStop(0.4,  '#FFE55C');
+      rimGrd.addColorStop(0.5,  '#FFFACD');
+      rimGrd.addColorStop(0.6,  '#FFE55C');
+      rimGrd.addColorStop(0.8,  '#C5A028');
+      rimGrd.addColorStop(1,    '#7B5B0A');
+      ctx.beginPath();
+      ctx.arc(cx, cy, RIM_R, 0, 2 * Math.PI);
+      ctx.strokeStyle = rimGrd;
+      ctx.lineWidth   = RIM_W;
+      ctx.stroke();
+
+      // Inner shadow line
+      ctx.beginPath();
+      ctx.arc(cx, cy, R + 2, 0, 2 * Math.PI);
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth   = 3;
+      ctx.stroke();
+
+      // ── 4. Studs ──────────────────────────────
+      const numStuds = 28;
+      for (let i = 0; i < numStuds; i++) {
+        const a  = (i / numStuds) * 2 * Math.PI;
+        const sx = cx + Math.cos(a) * RIM_R;
+        const sy = cy + Math.sin(a) * RIM_R;
+
+        // Shadow
+        ctx.beginPath();
+        ctx.arc(sx + 1.2, sy + 1.5, 6.5, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fill();
+
+        // Stud body
+        const sg = ctx.createRadialGradient(sx - 2, sy - 2, 1, sx, sy, 7);
+        sg.addColorStop(0,   '#FFFDE0');
+        sg.addColorStop(0.3, '#FFD700');
+        sg.addColorStop(0.7, '#C5A028');
+        sg.addColorStop(1,   '#6B4F0A');
+        ctx.beginPath();
+        ctx.arc(sx, sy, 7, 0, 2 * Math.PI);
+        ctx.fillStyle = sg;
+        ctx.fill();
+
+        // Stud rim
+        ctx.strokeStyle = '#6B4F0A';
+        ctx.lineWidth   = 0.8;
+        ctx.stroke();
+      }
+
+      // ── 5. Center hub ─────────────────────────
+      // Shadow
+      ctx.beginPath();
+      ctx.arc(cx + 3, cy + 4, 27, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fill();
+
+      // Hub body
+      const hubG = ctx.createRadialGradient(cx - 7, cy - 7, 2, cx, cy, 26);
+      hubG.addColorStop(0,    '#FFFDE0');
+      hubG.addColorStop(0.25, '#FFD700');
+      hubG.addColorStop(0.55, '#C5A028');
+      hubG.addColorStop(0.8,  '#8B6914');
+      hubG.addColorStop(1,    '#4A3200');
+      ctx.beginPath();
+      ctx.arc(cx, cy, 26, 0, 2 * Math.PI);
+      ctx.fillStyle = hubG;
+      ctx.fill();
+
+      // Hub ring
+      ctx.strokeStyle = '#6B4F0A';
+      ctx.lineWidth   = 2;
+      ctx.stroke();
+
+      // Specular highlight
+      ctx.beginPath();
+      ctx.arc(cx - 6, cy - 7, 9, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      ctx.fill();
+    }
+
+    // ── Spin ─────────────────────────────────────────────────
+
+    function setCharacterState(state) {
+      ['.character', '.character-right'].forEach(sel => {
+        const el = document.querySelector(sel);
+        if (!el) return;
+        el.classList.remove('floating', 'spinning');
+        if (state) el.classList.add(state);
+      });
+    }
+
+    function spin() {
+      if (isSpinning || getValid().length === 0) return;
+      isSpinning   = true;
+      winnerInList = -1;
+      document.getElementById('spinBtn').disabled = true;
+      setCharacterState('spinning');
+      const resultEl = document.getElementById('result');
+      resultEl.classList.remove('animate');
+      resultEl.textContent = '';
+
+      const totalSpin = (5 + Math.random() * 6) * 360;
+      const duration  = 3800 + Math.random() * 1600;
+      const t0        = performance.now();
+      const fromAngle = currentAngle;
+
+      function frame(now) {
+        const t    = Math.min((now - t0) / duration, 1);
+        const ease = 1 - Math.pow(1 - t, 4);
+        currentAngle = fromAngle + totalSpin * ease;
+        drawWheel();
+        if (t < 1) {
+          requestAnimationFrame(frame);
+        } else {
+          currentAngle = currentAngle % 360;
+          isSpinning   = false;
+          document.getElementById('spinBtn').disabled = false;
+          setCharacterState('floating');
+          determineWinner();
+        }
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+    // ── Winner ───────────────────────────────────────────────
+
+    function determineWinner() {
+      const valid = getValid();
+      const total = valid.reduce((s, e) => s + e.ratio, 0);
+      const ptr   = (360 - currentAngle % 360) % 360;
+
+      let cum      = 0;
+      let winner   = valid[valid.length - 1];
+      winnerInList = valid.length - 1;
+
+      for (let i = 0; i < valid.length; i++) {
+        const slice = (valid[i].ratio / total) * 360;
+        if (ptr < cum + slice) {
+          winner       = valid[i];
+          winnerInList = i;
+          break;
+        }
+        cum += slice;
+      }
+
+      drawWheel();
+      const resultEl = document.getElementById('result');
+      resultEl.textContent = `🎊 ${winner.name} が当たり！ 🎊`;
+      resultEl.classList.remove('animate');
+      void resultEl.offsetWidth;
+      resultEl.classList.add('animate');
+    }
+
+    // ── Entry management ─────────────────────────────────────
+
+    function equalizeRatios() {
+      entries.forEach(e => { e.ratio = 1; });
+      renderList();
+      drawWheel();
+    }
+
+    function addEntry() {
+      entries.push({ name: '', ratio: 1 });
+      renderList();
+      const inputs = document.querySelectorAll('.entry-name');
+      if (inputs.length) inputs[inputs.length - 1].focus();
+      drawWheel();
+    }
+
+    function removeEntry(i) {
+      if (entries.length <= 1) return;
+      entries.splice(i, 1);
+      renderList();
+      drawWheel();
+    }
+
+    // Updates the gold fill on a range input based on its current value
+    function updateSliderFill(rangeIn) {
+      const val = parseInt(rangeIn.value);
+      const min = parseInt(rangeIn.min) || 1;
+      const max = parseInt(rangeIn.max) || 20;
+      const pct = Math.round(((val - min) / (max - min)) * 100);
+      rangeIn.style.background =
+        `linear-gradient(to right, #C5A028 0%, #FFD700 ${pct}%, rgba(184,134,20,0.2) ${pct}%)`;
+    }
+
+    function renderList() {
+      const list = document.getElementById('entryList');
+      list.innerHTML = '';
+
+      entries.forEach((e, i) => {
+        // ── Main row ──────────────────────────────
+        const row = document.createElement('div');
+        row.className = 'entry-row';
+
+        const dot = document.createElement('div');
+        dot.className        = 'entry-dot';
+        dot.style.background = SEG_COLORS[i % SEG_COLORS.length];
+
+        const nameIn = document.createElement('input');
+        nameIn.type        = 'text';
+        nameIn.className   = 'entry-name';
+        nameIn.value       = e.name;
+        nameIn.placeholder = `選択肢 ${i + 1}`;
+        nameIn.maxLength   = 20;
+        nameIn.oninput     = ev => { entries[i].name = ev.target.value; drawWheel(); };
+
+        // Paste handler: multi-line paste → bulk import from this row onwards
+        nameIn.addEventListener('paste', ev => {
+          const text = ev.clipboardData.getData('text');
+          if (text.includes('\n')) {
+            ev.preventDefault();
+            parseBulkText(text, i);
+          }
+        });
+
+        const ratioIn = document.createElement('input');
+        ratioIn.type      = 'number';
+        ratioIn.className = 'entry-ratio';
+        ratioIn.value     = e.ratio;
+        ratioIn.min       = 1;
+        ratioIn.max       = 999;
+
+        // ── Slider row ────────────────────────────
+        const sliderRow = document.createElement('div');
+        sliderRow.className = 'entry-slider-row';
+
+        const rangeIn = document.createElement('input');
+        rangeIn.type      = 'range';
+        rangeIn.className = 'entry-range';
+        rangeIn.min       = 1;
+        rangeIn.max       = 20;
+        rangeIn.value     = Math.min(e.ratio, 20);
+        updateSliderFill(rangeIn);
+
+        // Sync: number input → slider
+        ratioIn.oninput = ev => {
+          const v = Math.max(1, Math.min(999, parseInt(ev.target.value, 10) || 1));
+          entries[i].ratio  = v;
+          rangeIn.value     = Math.min(v, 20);
+          updateSliderFill(rangeIn);
+          drawWheel();
+        };
+
+        // Sync: slider → number input (real-time while dragging)
+        rangeIn.oninput = ev => {
+          const v = parseInt(ev.target.value, 10);
+          entries[i].ratio = v;
+          ratioIn.value    = v;
+          updateSliderFill(rangeIn);
+          drawWheel();
+        };
+
+        const rm = document.createElement('button');
+        rm.className   = 'btn-remove';
+        rm.textContent = '×';
+        rm.title       = '削除';
+        rm.onclick     = () => removeEntry(i);
+
+        row.append(dot, nameIn, ratioIn, rm);
+        sliderRow.append(rangeIn);
+
+        list.appendChild(row);
+        list.appendChild(sliderRow);
+      });
+    }
+
+    // ── Bulk import ───────────────────────────────────────────
+
+    function toggleBulkInput() {
+      const area = document.getElementById('bulkArea');
+      const btn  = document.getElementById('bulkToggleBtn');
+      const open = area.style.display === 'none';
+      area.style.display = open ? 'block' : 'none';
+      btn.textContent    = open ? '▲ 閉じる' : '📋 Excelから一括入力';
+    }
+
+    function applyBulk() {
+      const text = document.getElementById('bulkText').value.trim();
+      if (!text) return;
+      parseBulkText(text, 0);          // replace all entries
+      document.getElementById('bulkText').value = '';
+      toggleBulkInput();
+    }
+
+    // Parse TSV/newline text and replace entries starting at startIdx
+    function parseBulkText(text, startIdx) {
+      const lines = text.trim().split(/\r?\n/).filter(l => l.trim() !== '');
+      if (lines.length === 0) return;
+
+      const parsed = lines.map(line => {
+        const parts = line.split('\t');
+        const name  = parts[0].trim();
+        const raw   = parts.length > 1 ? parts[1].trim() : '';
+        const ratio = Math.max(1, parseInt(raw, 10) || 1);
+        return { name, ratio };
+      }).filter(e => e.name !== '');
+
+      if (parsed.length === 0) return;
+
+      entries.splice(startIdx, entries.length - startIdx, ...parsed);
+      renderList();
+      drawWheel();
+    }
+
+    // ── Panel modal ───────────────────────────────────────────
+
+    function togglePanel() {
+      document.getElementById('panelOverlay').classList.toggle('open');
+    }
+
+    function overlayClick(e) {
+      // Close when clicking the dark backdrop (not the panel itself)
+      if (e.target === document.getElementById('panelOverlay')) togglePanel();
+    }
+
+    window.addEventListener('resize', drawWheel);
+    renderList();
+    drawWheel();
+
+    // Switch both characters to float after entrance completes
+    setTimeout(() => setCharacterState('floating'), 1400);
+  </script>
+</body>
+</html>
