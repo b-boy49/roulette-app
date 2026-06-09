@@ -404,6 +404,27 @@
       border-color: #FFD700;
     }
 
+    .btn-reset {
+      width: 100%;
+      margin-top: 10px;
+      background: linear-gradient(135deg, #7A0B2E, #B31237, #7A0B2E);
+      color: #FFF4F4;
+      border: 1px solid rgba(255, 120, 120, 0.65);
+      padding: 12px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-family: inherit;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      transition: transform 0.15s, filter 0.15s, border-color 0.15s;
+    }
+    .btn-reset:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+      border-color: #FF8A8A;
+    }
+
     .btn-equal {
       background: linear-gradient(135deg, #8B6914, #C5A028, #8B6914);
       color: #FFFACD;
@@ -997,6 +1018,7 @@
       </div>
 
       <button class="btn-save" onclick="saveAndReturn()">保存して戻る</button>
+      <button class="btn-reset" onclick="resetAllEntries()">全て削除</button>
     </div>
   </div>
 
@@ -1074,6 +1096,24 @@
         tx.onerror = () => reject(tx.error || new Error('indexedDB transaction failed'));
         tx.onabort = () => reject(tx.error || new Error('indexedDB transaction aborted'));
       });
+    }
+
+    async function clearStoredEntries() {
+      try {
+        const db = await openEntriesDb();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.objectStore(STORE_NAME).clear();
+        await waitForTransaction(tx);
+        db.close();
+      } catch {
+        // Ignore clear failures and continue with the in-memory reset.
+      }
+
+      try {
+        localStorage.removeItem(LEGACY_STORAGE_KEY);
+      } catch {
+        // Ignore localStorage failures.
+      }
     }
 
     async function loadEntries() {
@@ -1899,6 +1939,17 @@
 
     function saveAndReturn() {
       saveEntries().finally(() => window.location.reload());
+    }
+
+    async function resetAllEntries() {
+      if (!confirm('本当に削除しますか？')) return;
+
+      await clearStoredEntries();
+      entries = createDefaultEntries();
+      renderList();
+      drawWheel();
+      await saveEntries();
+      window.location.reload();
     }
 
     // ── Panel modal ───────────────────────────────────────────
